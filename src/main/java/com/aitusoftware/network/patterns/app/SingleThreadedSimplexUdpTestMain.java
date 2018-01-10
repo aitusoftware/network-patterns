@@ -20,7 +20,7 @@ public final class SingleThreadedSimplexUdpTestMain
 
         final ExecutorService pool = Executors.newFixedThreadPool(2);
         final SingleThreadedSimplexUdpRunner runner = new SingleThreadedSimplexUdpRunner(
-                mode, Connection.NON_BLOCKING, address, pool, 256);
+                mode, Connection.BLOCKING, address, pool, 256);
 
         final Future<?> task = runner.start();
 

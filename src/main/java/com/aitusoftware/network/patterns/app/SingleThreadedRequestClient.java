@@ -7,9 +7,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.util.concurrent.TimeUnit;
 
 public final class SingleThreadedRequestClient
 {
+    private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(1L);
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
@@ -24,7 +26,7 @@ public final class SingleThreadedRequestClient
     {
         this.inputChannel = inputChannel;
         this.outputChannel = outputChannel;
-        this.payload = ByteBuffer.allocateDirect(payloadSize);
+        payload = ByteBuffer.allocateDirect(payloadSize);
         this.latencyRecorder = latencyRecorder;
         this.warmupMessages = warmupMessages;
         this.measurementMessages = measurementMessages;
@@ -42,19 +44,31 @@ public final class SingleThreadedRequestClient
         {
             try
             {
-                Messages.setRequestData(payload, System.nanoTime(), sequenceNumber);
+                final long sendingTime = System.nanoTime();
+                Messages.setRequestData(payload, sendingTime, sequenceNumber);
                 while (payload.remaining() != 0)
                 {
                     outputChannel.write(payload);
                 }
                 payload.clear();
-                // TODO cannot handle dropped message - implement timeout
-                while (payload.remaining() != 0)
+                final long responseTimeout = sendingTime + TIMEOUT_NANOS;
+                while (payload.remaining() != 0 && System.nanoTime() < responseTimeout)
                 {
                     inputChannel.read(payload);
                 }
+                if (payload.remaining() != 0)
+                {
+                    latencyRecorder.messagesDropped(1);
+                }
                 final long receivedSequence = Messages.retrieveSequence(payload);
-                latencyRecorder.recordValue(System.nanoTime() - Messages.retrievePayload(payload));
+                if (receivedSequence != sequenceNumber)
+                {
+                    latencyRecorder.messagesDropped(sequenceNumber - receivedSequence);
+                }
+                else
+                {
+                    latencyRecorder.recordValue(System.nanoTime() - Messages.retrievePayload(payload));
+                }
                 if (warmUpMessagesRemaining != 0)
                 {
                     warmUpMessagesRemaining--;

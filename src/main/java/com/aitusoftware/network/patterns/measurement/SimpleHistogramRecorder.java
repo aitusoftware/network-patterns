@@ -42,7 +42,7 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
 
 
     @Override
-    public void messagesDropped(final int messageCount)
+    public void messagesDropped(final long messageCount)
     {
         droppedMessages += messageCount;
     }

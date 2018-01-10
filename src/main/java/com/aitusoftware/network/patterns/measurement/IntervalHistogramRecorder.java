@@ -44,7 +44,7 @@ public final class IntervalHistogramRecorder implements LatencyRecorder
     }
 
     @Override
-    public void messagesDropped(final int messageCount)
+    public void messagesDropped(final long messageCount)
     {
         droppedMessages += messageCount;
     }
