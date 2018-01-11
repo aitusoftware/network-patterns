@@ -6,20 +6,20 @@ public final class Messages
 {
     private Messages() {}
 
-    public static void setRequestData(final ByteBuffer target, final long payload, final long sequence)
+    public static void setRequestData(final ByteBuffer target, final int timestamp, final int sequence)
     {
         target.clear();
-        target.putLong(0, payload);
-        target.putLong(8, sequence);
+        target.putInt(0, timestamp);
+        target.putInt(4, sequence);
     }
 
-    public static long retrievePayload(final ByteBuffer source)
+    public static int retrieveTimestamp(final ByteBuffer source)
     {
-        return source.getLong(0);
+        return source.getInt(0);
     }
 
-    public static long retrieveSequence(final ByteBuffer source)
+    public static int retrieveSequence(final ByteBuffer source)
     {
-        return source.getLong(8);
+        return source.getInt(4);
     }
 }

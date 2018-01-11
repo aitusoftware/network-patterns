@@ -3,7 +3,6 @@ package com.aitusoftware.network.patterns.app;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.SocketChannel;
 import java.nio.channels.WritableByteChannel;
 
 public final class SingleThreadedResponseServer

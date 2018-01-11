@@ -37,53 +37,80 @@ public final class SingleThreadedRequestClient
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
         long totalMessagesRemaining = warmupMessages + measurementMessages;
-        long sequenceNumber = 0;
+        int sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
+        final long startNanos = System.nanoTime();
 
         while (!Thread.currentThread().isInterrupted() && totalMessagesRemaining-- != 0)
         {
-            try
-            {
-                final long sendingTime = System.nanoTime();
-                Messages.setRequestData(payload, sendingTime, sequenceNumber);
-                while (payload.remaining() != 0)
-                {
-                    outputChannel.write(payload);
-                }
-                payload.clear();
-                final long responseTimeout = sendingTime + TIMEOUT_NANOS;
-                while (payload.remaining() != 0 && System.nanoTime() < responseTimeout)
-                {
-                    inputChannel.read(payload);
-                }
-                if (payload.remaining() != 0)
-                {
-                    latencyRecorder.messagesDropped(1);
-                }
-                final long receivedSequence = Messages.retrieveSequence(payload);
-                if (receivedSequence != sequenceNumber)
-                {
-                    latencyRecorder.messagesDropped(sequenceNumber - receivedSequence);
-                }
-                else
-                {
-                    latencyRecorder.recordValue(System.nanoTime() - Messages.retrievePayload(payload));
-                }
-                if (warmUpMessagesRemaining != 0)
-                {
-                    warmUpMessagesRemaining--;
-                    if (warmUpMessagesRemaining % histogramClearInterval == 0)
-                    {
-                        latencyRecorder.reset();
-                    }
-                }
-            }
-            catch (IOException e)
-            {
-                System.err.printf("Failed to make request: %s. Exiting.%n", e.getMessage());
-            }
+            warmUpMessagesRemaining =
+                    recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining,
+                            sequenceNumber, startNanos);
         }
 
         latencyRecorder.complete();
+    }
+
+    private long recordSingleMessageLatency(final long histogramClearInterval, long warmUpMessagesRemaining, final int sequenceNumber, final long startNanos)
+    {
+        try
+        {
+            sendMessage(sequenceNumber, startNanos);
+            receiveMessage();
+            recordLatency(sequenceNumber, startNanos);
+            if (warmUpMessagesRemaining != 0)
+            {
+                warmUpMessagesRemaining--;
+                if (warmUpMessagesRemaining % histogramClearInterval == 0)
+                {
+                    latencyRecorder.reset();
+                }
+            }
+        }
+        catch (IOException e)
+        {
+            System.err.printf("Failed to make request: %s. Exiting.%n", e.getMessage());
+        }
+        return warmUpMessagesRemaining;
+    }
+
+    private void recordLatency(final int sequenceNumber, final long startNanos)
+    {
+        if (payload.remaining() != 0)
+        {
+            latencyRecorder.messagesDropped(1);
+        }
+        final int receivedTime = (int) (System.nanoTime() - startNanos);
+        final int receivedSequence = Messages.retrieveSequence(payload);
+        if (receivedSequence != sequenceNumber)
+        {
+            latencyRecorder.messagesDropped(sequenceNumber - receivedSequence);
+        }
+        else
+        {
+            latencyRecorder.recordValue(receivedTime -
+                    Messages.retrieveTimestamp(payload));
+        }
+    }
+
+    private void receiveMessage() throws IOException
+    {
+        payload.clear();
+        final long responseTimeout = System.nanoTime() + TIMEOUT_NANOS;
+        while (payload.remaining() != 0 && System.nanoTime() < responseTimeout)
+        {
+            inputChannel.read(payload);
+        }
+    }
+
+    private void sendMessage(final int sequenceNumber, final long startNanos) throws IOException
+    {
+        payload.clear();
+        final int sendingTime = (int) (System.nanoTime() - startNanos);
+        Messages.setRequestData(payload, sendingTime, sequenceNumber);
+        while (payload.remaining() != 0)
+        {
+            outputChannel.write(payload);
+        }
     }
 }

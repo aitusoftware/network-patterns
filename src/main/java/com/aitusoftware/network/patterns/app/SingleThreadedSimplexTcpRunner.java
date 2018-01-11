@@ -46,7 +46,7 @@ public final class SingleThreadedSimplexTcpRunner
         {
             case CLIENT:
                 final SocketChannel clientChannel = connectToRemoteAddress();
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 500_000)::sendLoop);
 
             case SERVER:
                 final SocketChannel serverChannel = acceptConnection();
