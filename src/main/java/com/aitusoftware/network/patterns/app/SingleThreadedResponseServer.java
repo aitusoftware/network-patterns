@@ -28,7 +28,11 @@ public final class SingleThreadedResponseServer
         {
             try
             {
-                inputChannel.read(payload);
+                final int read = inputChannel.read(payload);
+                if (read == -1)
+                {
+                    return;
+                }
                 if (payload.remaining() == 0)
                 {
                     payload.flip();

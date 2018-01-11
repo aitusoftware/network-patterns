@@ -8,12 +8,13 @@ import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.DatagramChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-public final class SingleThreadedSimplexUdpRunner
+public final class SingleThreadedDuplexUdpRunner
 {
     private final Mode mode;
     private final Connection connection;
@@ -21,7 +22,7 @@ public final class SingleThreadedSimplexUdpRunner
     private final ExecutorService executor;
     private final int payloadSize;
 
-    SingleThreadedSimplexUdpRunner(
+    SingleThreadedDuplexUdpRunner(
             final Mode mode, final Connection connection,
             final InetSocketAddress address, final ExecutorService executor,
             final int payloadSize)
@@ -43,19 +44,30 @@ public final class SingleThreadedSimplexUdpRunner
         switch (mode)
         {
             case CLIENT:
-                final DatagramChannel clientChannel = connectToRemoteAddress();
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+                final DatagramChannel clientOutput = connectToRemoteAddress(address);
+                System.out.printf("Client made outgoing connection to %s%n", clientOutput);
+                final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
+                System.out.printf("Client waiting for incoming connection on %s%n", bindAddress);
+                final DatagramChannel clientInput = acceptConnection(bindAddress);
+                System.out.printf("Client received incoming connection %s%n", clientInput);
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
 
             case SERVER:
-                final DatagramChannel serverChannel = acceptConnection();
-                return executor.submit(new SingleThreadedResponseServer(serverChannel, serverChannel, payloadSize)::receiveLoop);
+                final DatagramChannel serverInput = acceptConnection(address);
+                System.out.printf("Server received incoming connection %s%n", serverInput);
+                final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
+                final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
+                System.out.printf("Server attempting outgoing connection to %s%n", remoteAddress);
+                final DatagramChannel serverOutput = connectToRemoteAddress(remoteAddress);
+                System.out.printf("Server establised outgoing connection %s%n", serverOutput);
+                return executor.submit(new SingleThreadedResponseServer(serverInput, serverOutput, payloadSize)::receiveLoop);
 
             default:
                 throw new IllegalArgumentException();
         }
     }
 
-    private DatagramChannel acceptConnection()
+    private DatagramChannel acceptConnection(final InetSocketAddress bindAddress)
     {
         final UdpHandshake handshake = new UdpHandshake();
         final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
@@ -64,7 +76,7 @@ public final class SingleThreadedSimplexUdpRunner
             try
             {
                 final DatagramChannel channel = DatagramChannel.open();
-                channel.bind(address);
+                channel.bind(bindAddress);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
 
@@ -77,10 +89,10 @@ public final class SingleThreadedSimplexUdpRunner
         }
 
         throw new UncheckedIOException(
-                new IOException("Could not connect to server at " + address + " within timeout"));
+                new IOException("Could not connect to server at " + bindAddress + " within timeout"));
     }
 
-    private DatagramChannel connectToRemoteAddress()
+    private DatagramChannel connectToRemoteAddress(final InetSocketAddress remoteAddress)
     {
         final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
         final UdpHandshake handshake = new UdpHandshake();
@@ -88,7 +100,7 @@ public final class SingleThreadedSimplexUdpRunner
         {
             try
             {
-                final DatagramChannel channel = handshake.initiateSend(address);
+                final DatagramChannel channel = handshake.initiateSend(remoteAddress);
                 channel.configureBlocking(connection.isBlocking());
                 return channel;
             }
@@ -98,6 +110,6 @@ public final class SingleThreadedSimplexUdpRunner
             }
         }
         throw new UncheckedIOException(
-                new IOException("Could not connect to server at " + address + " within timeout"));
+                new IOException("Could not connect to server at " + remoteAddress + " within timeout"));
     }
 }
