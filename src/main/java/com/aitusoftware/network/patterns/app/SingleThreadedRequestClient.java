@@ -12,6 +12,7 @@ import java.util.concurrent.TimeUnit;
 public final class SingleThreadedRequestClient
 {
     private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(1L);
+    private static final long BASE_TIMESTAMP = System.nanoTime();
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
@@ -37,21 +38,30 @@ public final class SingleThreadedRequestClient
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
         long totalMessagesRemaining = warmupMessages + measurementMessages;
-        int sequenceNumber = 0;
+        short sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
         final long startNanos = System.nanoTime();
 
-        while (!Thread.currentThread().isInterrupted() && totalMessagesRemaining-- != 0)
+        try
         {
-            warmUpMessagesRemaining =
-                    recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining,
-                            sequenceNumber, startNanos);
-        }
+            while (!Thread.currentThread().isInterrupted() && totalMessagesRemaining-- != 0)
+            {
+                warmUpMessagesRemaining =
+                        recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining,
+                                sequenceNumber, startNanos);
+                sequenceNumber++;
+            }
 
-        latencyRecorder.complete();
+            latencyRecorder.complete();
+        }
+        finally
+        {
+            Io.closeQuietly(outputChannel);
+            Io.closeQuietly(inputChannel);
+        }
     }
 
-    private long recordSingleMessageLatency(final long histogramClearInterval, long warmUpMessagesRemaining, final int sequenceNumber, final long startNanos)
+    private long recordSingleMessageLatency(final long histogramClearInterval, long warmUpMessagesRemaining, final short sequenceNumber, final long startNanos)
     {
         try
         {
@@ -80,16 +90,16 @@ public final class SingleThreadedRequestClient
         {
             latencyRecorder.messagesDropped(1);
         }
-        final int receivedTime = (int) (System.nanoTime() - startNanos);
-        final int receivedSequence = Messages.retrieveSequence(payload);
+        final long response = payload.getLong(0);
+        final long receivedTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
+        final short receivedSequence = (short) (response >> 48);
         if (receivedSequence != sequenceNumber)
         {
             latencyRecorder.messagesDropped(sequenceNumber - receivedSequence);
         }
         else
         {
-            latencyRecorder.recordValue(receivedTime -
-                    Messages.retrieveTimestamp(payload));
+            latencyRecorder.recordValue(receivedTime - Messages.maskTimestamp(response));
         }
     }
 
@@ -103,11 +113,11 @@ public final class SingleThreadedRequestClient
         }
     }
 
-    private void sendMessage(final int sequenceNumber, final long startNanos) throws IOException
+    private void sendMessage(final short sequenceNumber, final long startNanos) throws IOException
     {
         payload.clear();
-        final int sendingTime = (int) (System.nanoTime() - startNanos);
-        Messages.setRequestData(payload, sendingTime, sequenceNumber);
+        final long sendingTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
+        Messages.setRequestDataSinglePayload(payload, sendingTime | ((long) sequenceNumber) << 48);
         while (payload.remaining() != 0)
         {
             outputChannel.write(payload);

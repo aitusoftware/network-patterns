@@ -12,16 +12,23 @@ public final class Exchanger
     {
         while (!container.compareAndSet(UNSET_VALUE, value))
         {
-            // spin
+            if (Thread.currentThread().isInterrupted())
+            {
+                throw new RuntimeException("Bailing out");
+            }
         }
     }
 
     public long get()
     {
+        // TODO add timeout, return UNSET_VALUE
         long value;
         while ((value = container.get()) == UNSET_VALUE)
         {
-            // spin
+            if (Thread.currentThread().isInterrupted())
+            {
+                throw new RuntimeException("Bailing out");
+            }
         }
         container.lazySet(UNSET_VALUE);
         return value;

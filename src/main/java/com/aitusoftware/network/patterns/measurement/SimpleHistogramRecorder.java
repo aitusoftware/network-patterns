@@ -1,5 +1,6 @@
 package com.aitusoftware.network.patterns.measurement;
 
+import com.aitusoftware.network.patterns.config.HistogramFactory;
 import org.HdrHistogram.Histogram;
 
 import java.util.function.Consumer;
@@ -19,6 +20,14 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
         this.histogram = histogram;
         this.completeListener = completeListener;
         this.dropListener = dropListener;
+    }
+
+    public static LatencyRecorder printToStdOut()
+    {
+        return new SimpleHistogramRecorder(HistogramFactory.create(), h -> {
+            System.out.printf("99%% = %d%n", h.getValueAtPercentile(99));
+//            h.outputPercentileDistribution(System.out, 1d)
+        }, d -> System.out.printf("Dropped %d messages%n", d));
     }
 
     @Override

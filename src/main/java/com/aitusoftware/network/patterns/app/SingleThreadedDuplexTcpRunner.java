@@ -2,9 +2,8 @@ package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
-import com.aitusoftware.network.patterns.config.HistogramFactory;
 import com.aitusoftware.network.patterns.config.Mode;
-import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
+import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -36,31 +35,21 @@ public final class SingleThreadedDuplexTcpRunner
         this.payloadSize = payloadSize;
     }
 
-    Future<?> start()
+    Future<?> start(final LatencyRecorder latencyRecorder)
     {
-        final SimpleHistogramRecorder latencyRecorder =
-                new SimpleHistogramRecorder(HistogramFactory.create(), h -> {
-                    h.outputPercentileDistribution(System.out, 1d);
-                }, d -> System.out.printf("Dropped %d messages%n", d));
         switch (mode)
         {
             case CLIENT:
                 final SocketChannel clientOutput = connectToRemoteAddress(address);
-                System.out.printf("Client made outgoing connection to %s%n", clientOutput);
                 final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
-                System.out.printf("Client waiting for incoming connection on %s%n", bindAddress);
                 final SocketChannel clientInput = acceptConnection(bindAddress);
-                System.out.printf("Client received incoming connection %s%n", clientInput);
-                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 500_000)::sendLoop);
 
             case SERVER:
                 final SocketChannel serverInput = acceptConnection(address);
-                System.out.printf("Server received incoming connection %s%n", serverInput);
                 final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
                 final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
-                System.out.printf("Server attempting outgoing connection to %s%n", remoteAddress);
                 final SocketChannel serverOutput = connectToRemoteAddress(remoteAddress);
-                System.out.printf("Server establised outgoing connection %s%n", serverOutput);
                 return executor.submit(new SingleThreadedResponseServer(serverInput, serverOutput, payloadSize)::receiveLoop);
 
             default:
@@ -87,6 +76,8 @@ public final class SingleThreadedDuplexTcpRunner
                     {
                         Thread.yield();
                     }
+
+                    Io.closeQuietly(serverSocket);
                     return channel;
                 }
                 catch (IOException e)

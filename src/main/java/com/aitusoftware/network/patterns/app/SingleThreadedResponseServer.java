@@ -30,6 +30,8 @@ public final class SingleThreadedResponseServer
                 final int read = inputChannel.read(payload);
                 if (read == -1)
                 {
+                    Io.closeQuietly(inputChannel);
+                    Io.closeQuietly(outputChannel);
                     return;
                 }
                 if (payload.remaining() == 0)

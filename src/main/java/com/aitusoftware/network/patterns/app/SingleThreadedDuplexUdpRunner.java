@@ -2,8 +2,8 @@ package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
-import com.aitusoftware.network.patterns.config.HistogramFactory;
 import com.aitusoftware.network.patterns.config.Mode;
+import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
 
 import java.io.IOException;
@@ -37,10 +37,8 @@ public final class SingleThreadedDuplexUdpRunner
 
     Future<?> start()
     {
-        final SimpleHistogramRecorder latencyRecorder =
-                new SimpleHistogramRecorder(HistogramFactory.create(), h -> {
-                    h.outputPercentileDistribution(System.out, 1d);
-                }, d -> System.out.printf("Dropped %d messages%n", d));
+        final LatencyRecorder latencyRecorder =
+                SimpleHistogramRecorder.printToStdOut();
         switch (mode)
         {
             case CLIENT:

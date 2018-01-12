@@ -2,13 +2,14 @@ package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
-import com.aitusoftware.network.patterns.config.HistogramFactory;
 import com.aitusoftware.network.patterns.config.Mode;
-import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
+import com.aitusoftware.network.patterns.config.Threading;
+import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
@@ -16,45 +17,75 @@ import java.util.concurrent.Future;
 
 public final class SingleThreadedSimplexTcpRunner
 {
-
     private final Mode mode;
     private final Connection connection;
+    private final Threading threading;
     private final InetSocketAddress address;
     private final ExecutorService executor;
     private final int payloadSize;
 
     SingleThreadedSimplexTcpRunner(
             final Mode mode, final Connection connection,
-            final InetSocketAddress address, final ExecutorService executor,
+            final Threading threading, final InetSocketAddress address,
+            final ExecutorService executor,
             final int payloadSize)
     {
 
         this.mode = mode;
         this.connection = connection;
+        this.threading = threading;
         this.address = address;
         this.executor = executor;
         this.payloadSize = payloadSize;
     }
 
-    Future<?> start()
+    Future<?> start(final LatencyRecorder latencyRecorder)
     {
-        final SimpleHistogramRecorder latencyRecorder =
-                new SimpleHistogramRecorder(HistogramFactory.create(), h -> {
-                    h.outputPercentileDistribution(System.out, 1d);
-                }, d -> System.out.printf("Dropped %d messages%n", d));
         switch (mode)
         {
             case CLIENT:
                 final SocketChannel clientChannel = connectToRemoteAddress();
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 500_000)::sendLoop);
+                return startClient(latencyRecorder, clientChannel);
 
             case SERVER:
                 final SocketChannel serverChannel = acceptConnection();
-                return executor.submit(new SingleThreadedResponseServer(serverChannel, serverChannel, payloadSize)::receiveLoop);
+                return startServer(serverChannel);
 
             default:
                 throw new IllegalArgumentException();
         }
+    }
+
+    private Future<?> startServer(final SocketChannel serverChannel)
+    {
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedResponseServer(serverChannel, serverChannel, payloadSize)::receiveLoop);
+            case MULTI_THREADED:
+                final MultiThreadedResponseServer server = new MultiThreadedResponseServer(serverChannel, serverChannel, payloadSize);
+                executor.submit(server::responseLoop);
+                return executor.submit(server::receiveLoop);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    private Future<?> startClient(final LatencyRecorder latencyRecorder, final SocketChannel clientChannel)
+    {
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1500_000)::sendLoop);
+            case MULTI_THREADED:
+
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1500_000);
+                executor.submit(client::receiveLoop);
+                return executor.submit(client::sendLoop);
+            default:
+                throw new IllegalArgumentException();
+        }
+
     }
 
     private SocketChannel acceptConnection()
@@ -63,6 +94,8 @@ public final class SingleThreadedSimplexTcpRunner
         {
             final ServerSocketChannel serverSocket = ServerSocketChannel.open();
             serverSocket.bind(address);
+            serverSocket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            serverSocket.setOption(StandardSocketOptions.SO_REUSEPORT, true);
             serverSocket.configureBlocking(true);
 
             final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
@@ -76,6 +109,7 @@ public final class SingleThreadedSimplexTcpRunner
                     {
                         Thread.yield();
                     }
+                    Io.closeQuietly(serverSocket);
                     return channel;
                 }
                 catch (IOException e)

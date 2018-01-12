@@ -2,7 +2,10 @@ package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Mode;
+import com.aitusoftware.network.patterns.config.Threading;
 import com.aitusoftware.network.patterns.config.Transport;
+import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
+import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
@@ -14,35 +17,48 @@ import java.util.concurrent.TimeoutException;
 
 public final class SingleThreadedTcpTestMain
 {
-    public static void main(String[] args) throws InterruptedException, ExecutionException, TimeoutException
+    public static void main(String... args) throws InterruptedException, ExecutionException, TimeoutException
     {
         final Mode mode = Mode.valueOf(args[0]);
         final Transport transport = Transport.valueOf(args[1]);
-        final InetSocketAddress address = new InetSocketAddress("127.0.0.1", 7786);
+        final Threading threading = Threading.valueOf(args[2]);
+        final Connection connection = Connection.valueOf(args[3]);
 
         final ExecutorService pool = Executors.newFixedThreadPool(2);
-        final Future<?> task = runTask(mode, address, pool, transport);
+        final Future<?> task = startService(mode, transport, threading, connection, pool, SimpleHistogramRecorder.printToStdOut());
 
         task.get(20, TimeUnit.MINUTES);
         pool.shutdownNow();
     }
 
+    static Future<?> startService(
+            final Mode mode, final Transport transport, final Threading threading,
+            final Connection connection, final ExecutorService pool,
+            final LatencyRecorder latencyRecorder)
+    {
+        final InetSocketAddress address = new InetSocketAddress("127.0.0.1", 7786);
+
+        return runTask(mode, address, pool, transport, threading, connection, latencyRecorder);
+    }
+
     private static Future<?> runTask(
             final Mode mode, final InetSocketAddress address,
-            final ExecutorService pool, final Transport transport)
+            final ExecutorService pool, final Transport transport,
+            final Threading threading, final Connection connection,
+            final LatencyRecorder latencyRecorder)
     {
         switch (transport)
         {
             case SIMPLEX:
                 final SingleThreadedSimplexTcpRunner simplex = new SingleThreadedSimplexTcpRunner(
-                        mode, Connection.NON_BLOCKING, address, pool, 256);
+                        mode, connection, threading, address, pool, 256);
 
-                return simplex.start();
+                return simplex.start(latencyRecorder);
             case DUPLEX:
                 final SingleThreadedDuplexTcpRunner duplex = new SingleThreadedDuplexTcpRunner(
-                        mode, Connection.NON_BLOCKING, address, pool, 256);
+                        mode, connection, address, pool, 256);
 
-                return duplex.start();
+                return duplex.start(latencyRecorder);
             default:
                 throw new IllegalArgumentException();
         }
