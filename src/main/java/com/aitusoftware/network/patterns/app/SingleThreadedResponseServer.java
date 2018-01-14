@@ -1,5 +1,7 @@
 package com.aitusoftware.network.patterns.app;
 
+import com.aitusoftware.network.patterns.config.Constants;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -10,6 +12,7 @@ public final class SingleThreadedResponseServer
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
+    private long remainingMessages = Constants.MEASUREMENT_MESSAGES + Constants.WARMUP_MESSAGES;
 
     SingleThreadedResponseServer(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -36,6 +39,7 @@ public final class SingleThreadedResponseServer
                 }
                 if (payload.remaining() == 0)
                 {
+                    remainingMessages--;
                     payload.flip();
 
                     while (payload.remaining() != 0)
@@ -48,6 +52,12 @@ public final class SingleThreadedResponseServer
             catch (IOException e)
             {
                 System.err.printf("Failed to respond to request: %s. Exiting.%n", e.getMessage());
+                return;
+            }
+            if (remainingMessages == 0)
+            {
+                Io.closeQuietly(inputChannel);
+                Io.closeQuietly(outputChannel);
                 return;
             }
         }

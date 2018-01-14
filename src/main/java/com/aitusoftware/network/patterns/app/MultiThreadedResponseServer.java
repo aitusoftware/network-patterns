@@ -1,5 +1,7 @@
 package com.aitusoftware.network.patterns.app;
 
+import com.aitusoftware.network.patterns.config.Constants;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
@@ -12,6 +14,7 @@ public final class MultiThreadedResponseServer
     private final ByteBuffer requestBuffer;
     private final ByteBuffer responseBuffer;
     private final Exchanger exchanger = new Exchanger();
+    private long remainingMessages = Constants.MEASUREMENT_MESSAGES + Constants.WARMUP_MESSAGES;
     private volatile Thread responseThread;
 
     MultiThreadedResponseServer(
@@ -39,6 +42,7 @@ public final class MultiThreadedResponseServer
                 }
                 if (requestBuffer.remaining() == 0)
                 {
+                    remainingMessages--;
                     requestBuffer.flip();
                     exchanger.set(requestBuffer.getLong(0));
                     requestBuffer.clear();
@@ -47,6 +51,11 @@ public final class MultiThreadedResponseServer
             catch (IOException e)
             {
                 System.err.printf("Failed to receive request: %s. Exiting.%n", e.getMessage());
+                return;
+            }
+            if (remainingMessages == 0)
+            {
+                closeChannels();
                 return;
             }
         }

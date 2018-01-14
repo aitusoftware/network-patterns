@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
@@ -79,7 +80,7 @@ public final class DuplexTcpRunner
 
     private Future<?> startClient(final LatencyRecorder latencyRecorder, final SocketChannel clientOutput)
     {
-        final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
+        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, address.getPort() + 1);
         final SocketChannel clientInput = acceptConnection(bindAddress);
         switch (threading)
         {
@@ -101,6 +102,9 @@ public final class DuplexTcpRunner
         {
             final ServerSocketChannel serverSocket = ServerSocketChannel.open();
             serverSocket.bind(bindAddress);
+            serverSocket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            serverSocket.setOption(StandardSocketOptions.SO_REUSEPORT, true);
+
             serverSocket.configureBlocking(true);
 
             final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;

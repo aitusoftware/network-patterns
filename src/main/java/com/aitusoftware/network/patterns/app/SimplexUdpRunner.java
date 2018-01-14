@@ -9,6 +9,7 @@ import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.DatagramChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -95,6 +96,8 @@ public final class SimplexUdpRunner
             {
                 final DatagramChannel channel = DatagramChannel.open();
                 channel.bind(address);
+                channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+                channel.setOption(StandardSocketOptions.SO_REUSEPORT, true);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
 

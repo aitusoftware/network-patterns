@@ -19,6 +19,14 @@ public final class ThreadDetector
             final String threadId = toId(t);
             if (!threadIds.contains(threadId) && t.isAlive())
             {
+                final long terminationTimeout = System.currentTimeMillis() + 5_000L;
+                while (t.isAlive() && System.currentTimeMillis() < terminationTimeout)
+                {
+                    if (!t.isAlive())
+                    {
+                        return;
+                    }
+                }
                 throw new AssertionError("Found rogue thread: " + t.getName() + " in state: " + t.getState() + "\n" +
                         Arrays.stream(t.getStackTrace()).map(e -> e.toString() + "\n").reduce("", (a, b) -> a + b));
             }

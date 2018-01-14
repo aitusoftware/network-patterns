@@ -23,9 +23,9 @@ public final class UdpServiceFactory
         final Transport transport = Transport.valueOf(args[1]);
         final Connection connection = Connection.valueOf(args[2]);
 
-        final ExecutorService pool = Executors.newFixedThreadPool(2);
+        final ExecutorService pool = Executors.newCachedThreadPool();
         final LatencyRecorder latencyRecorder = SimpleHistogramRecorder.printToStdOut();
-        final Future<?> task = startService(mode, transport, Threading.SINGLE_THREADED, connection, pool, latencyRecorder);
+        final Future<?> task = startService(mode, Transport.SIMPLEX, Threading.SINGLE_THREADED, Connection.BLOCKING, pool, latencyRecorder);
 
         task.get(20, TimeUnit.MINUTES);
         pool.shutdownNow();

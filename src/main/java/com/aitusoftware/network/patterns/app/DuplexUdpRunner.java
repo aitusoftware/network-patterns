@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.channels.DatagramChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -76,8 +77,7 @@ public final class DuplexUdpRunner
 
     private Future<?> startClient(final LatencyRecorder latencyRecorder, final DatagramChannel clientOutput)
     {
-        // TODO UDP/TCP interface bind config for all modes
-        final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
+        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, address.getPort() + 1);
         final DatagramChannel clientInput = acceptConnection(bindAddress);
 
         switch (threading)
@@ -103,6 +103,8 @@ public final class DuplexUdpRunner
             {
                 final DatagramChannel channel = DatagramChannel.open();
                 channel.bind(bindAddress);
+                channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+                channel.setOption(StandardSocketOptions.SO_REUSEPORT, true);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
 
