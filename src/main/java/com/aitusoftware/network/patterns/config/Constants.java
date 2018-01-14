@@ -8,4 +8,5 @@ public interface Constants
     long WARMUP_MESSAGES = Long.getLong("network-patterns.warmupMessages", 500_000);
     long RUNTIME_MINUTES = Long.getLong("network-patterns.runtimeMinutes", 1);
     String BIND_ADDRESS = System.getProperty("network-patterns.bindAddress", "0.0.0.0");
+    String CONNECT_ADDRESS = System.getProperty("network-patterns.connectAddress", "127.0.0.1");
 }

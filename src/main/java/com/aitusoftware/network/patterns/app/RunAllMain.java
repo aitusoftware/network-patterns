@@ -13,11 +13,11 @@ import com.aitusoftware.network.patterns.measurement.ThreadDetector;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.PrintStream;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 
 public final class RunAllMain
 {
@@ -67,15 +67,12 @@ public final class RunAllMain
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
-            threadPool.submit(() -> {
-                LockSupport.parkNanos(TimeUnit.MINUTES.toNanos(Constants.RUNTIME_MINUTES));
-                clientStart.cancel(true);
-                serverStart.cancel(true);
-            });
+            Scheduler.delayedCancel(clientStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
+            Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
-        catch (InterruptedException e)
+        catch (InterruptedException | CancellationException e)
         {
             // due to cancel
         }
@@ -119,16 +116,12 @@ public final class RunAllMain
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
 
-            threadPool.submit(() -> {
-                LockSupport.parkNanos(TimeUnit.MINUTES.toNanos(Constants.RUNTIME_MINUTES));
-                clientStart.cancel(true);
-                serverStart.cancel(true);
-            });
-
+            Scheduler.delayedCancel(clientStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
+            Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
-        catch (InterruptedException e)
+        catch (InterruptedException | CancellationException e)
         {
             // due to cancel
         }

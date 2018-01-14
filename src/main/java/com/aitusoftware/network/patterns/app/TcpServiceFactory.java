@@ -1,6 +1,7 @@
 package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
+import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Mode;
 import com.aitusoftware.network.patterns.config.Threading;
 import com.aitusoftware.network.patterns.config.Transport;
@@ -36,7 +37,7 @@ public final class TcpServiceFactory
             final Connection connection, final ExecutorService pool,
             final LatencyRecorder latencyRecorder)
     {
-        final InetSocketAddress address = new InetSocketAddress("127.0.0.1", 7786);
+        final InetSocketAddress address = new InetSocketAddress(Constants.CONNECT_ADDRESS, 7786);
 
         return runTask(mode, address, pool, transport, threading, connection, latencyRecorder);
     }
