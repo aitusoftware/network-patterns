@@ -19,7 +19,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
 
-public final class RunAllMain
+public final class RunAllClients
 {
     public static void main(String[] args) throws Exception
     {
@@ -59,21 +59,15 @@ public final class RunAllMain
                             e.printStackTrace();
                         }
                     }, d -> {});
-            final Future<Future<?>> server = threadPool.submit(() -> TcpServiceFactory.startService(
-                    Mode.SERVER, transport, threading, connection, threadPool, latencyRecorder));
-
             final Future<Future<?>> client = threadPool.submit(() -> TcpServiceFactory.startService(
                     Mode.CLIENT, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
-            final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
             threadPool.submit(() -> {
                 LockSupport.parkNanos(TimeUnit.MINUTES.toNanos(Constants.RUNTIME_MINUTES));
                 clientStart.cancel(true);
-                serverStart.cancel(true);
             });
             clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
-            serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
         catch (InterruptedException e)
         {
@@ -108,25 +102,19 @@ public final class RunAllMain
                         {
                             e.printStackTrace();
                         }
-                    }, d -> {
-                    });
-            final Future<Future<?>> server = threadPool.submit(() -> UdpServiceFactory.startService(
-                    Mode.SERVER, transport, threading, connection, threadPool, latencyRecorder));
+                    }, d -> {});
 
             final Future<Future<?>> client = threadPool.submit(() -> UdpServiceFactory.startService(
                     Mode.CLIENT, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
-            final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
 
             threadPool.submit(() -> {
                 LockSupport.parkNanos(TimeUnit.MINUTES.toNanos(Constants.RUNTIME_MINUTES));
                 clientStart.cancel(true);
-                serverStart.cancel(true);
             });
 
             clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
-            serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
         catch (InterruptedException e)
         {

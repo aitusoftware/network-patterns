@@ -14,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 
 public final class SingleThreadedRequestClient
 {
-    private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(1L);
     private static final long BASE_TIMESTAMP = System.nanoTime();
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
@@ -112,7 +111,11 @@ public final class SingleThreadedRequestClient
         payload.clear();
         while (payload.remaining() != 0 && timer.isBeforeDeadline())
         {
-            inputChannel.read(payload);
+            if (inputChannel.read(payload) == -1)
+            {
+                Thread.currentThread().interrupt();
+                return;
+            }
         }
     }
 
