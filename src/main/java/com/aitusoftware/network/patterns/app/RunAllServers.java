@@ -79,9 +79,12 @@ public final class RunAllServers
             Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
-        catch (InterruptedException | CancellationException e)
+        catch (RuntimeException e)
         {
-            // due to cancel
+            if (!(e instanceof CancellationException))
+            {
+                e.printStackTrace();
+            }
         }
         finally
         {
@@ -122,9 +125,12 @@ public final class RunAllServers
             Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
-        catch (InterruptedException | CancellationException e)
+        catch (RuntimeException e)
         {
-            // due to cancel
+            if (!(e instanceof CancellationException))
+            {
+                e.printStackTrace();
+            }
         }
         finally
         {

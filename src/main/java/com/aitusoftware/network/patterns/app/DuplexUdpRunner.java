@@ -58,7 +58,7 @@ public final class DuplexUdpRunner
     private Future<?> startServer(final DatagramChannel serverInput)
     {
         final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
-        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
+        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, Constants.CLIENT_LISTEN_PORT);
         final DatagramChannel serverOutput = connectToRemoteAddress(remoteAddress);
 
         switch (threading)
@@ -77,7 +77,7 @@ public final class DuplexUdpRunner
 
     private Future<?> startClient(final LatencyRecorder latencyRecorder, final DatagramChannel clientOutput)
     {
-        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, address.getPort() + 1);
+        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, Constants.CLIENT_LISTEN_PORT);
         final DatagramChannel clientInput = acceptConnection(bindAddress);
 
         switch (threading)
@@ -104,7 +104,6 @@ public final class DuplexUdpRunner
                 final DatagramChannel channel = DatagramChannel.open();
                 channel.bind(bindAddress);
                 channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                channel.setOption(StandardSocketOptions.SO_REUSEPORT, true);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
 

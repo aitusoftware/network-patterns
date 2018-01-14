@@ -3,5 +3,5 @@
 .gradle/*
 out/*
 *.txt
-
-
+*.jar
+build/*

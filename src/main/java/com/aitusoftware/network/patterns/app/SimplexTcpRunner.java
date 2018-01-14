@@ -95,7 +95,6 @@ public final class SimplexTcpRunner
             final ServerSocketChannel serverSocket = ServerSocketChannel.open();
             serverSocket.bind(address);
             serverSocket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-            serverSocket.setOption(StandardSocketOptions.SO_REUSEPORT, true);
             serverSocket.configureBlocking(true);
 
             final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;

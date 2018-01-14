@@ -61,7 +61,7 @@ public final class DuplexTcpRunner
     private Future<?> startServer(final SocketChannel serverInput)
     {
         final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
-        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
+        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, Constants.CLIENT_LISTEN_PORT);
         final SocketChannel serverOutput = connectToRemoteAddress(remoteAddress);
 
         switch (threading)
@@ -79,7 +79,7 @@ public final class DuplexTcpRunner
 
     private Future<?> startClient(final LatencyRecorder latencyRecorder, final SocketChannel clientOutput)
     {
-        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, address.getPort() + 1);
+        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, Constants.CLIENT_LISTEN_PORT);
         final SocketChannel clientInput = acceptConnection(bindAddress);
         switch (threading)
         {
@@ -102,7 +102,6 @@ public final class DuplexTcpRunner
             final ServerSocketChannel serverSocket = ServerSocketChannel.open();
             serverSocket.bind(bindAddress);
             serverSocket.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-            serverSocket.setOption(StandardSocketOptions.SO_REUSEPORT, true);
 
             serverSocket.configureBlocking(true);
 

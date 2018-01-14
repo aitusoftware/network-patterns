@@ -97,7 +97,6 @@ public final class SimplexUdpRunner
                 final DatagramChannel channel = DatagramChannel.open();
                 channel.bind(address);
                 channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                channel.setOption(StandardSocketOptions.SO_REUSEPORT, true);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
 
