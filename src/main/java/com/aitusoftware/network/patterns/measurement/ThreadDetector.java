@@ -19,7 +19,7 @@ public final class ThreadDetector
             final String threadId = toId(t);
             if (!threadIds.contains(threadId) && t.isAlive())
             {
-                final long terminationTimeout = System.currentTimeMillis() + 5_000L;
+                final long terminationTimeout = System.currentTimeMillis() + 10_000L;
                 while (t.isAlive() && System.currentTimeMillis() < terminationTimeout)
                 {
                     if (!t.isAlive())
