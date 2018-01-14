@@ -1,18 +1,22 @@
 package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Constants;
+import com.aitusoftware.network.patterns.measurement.Timer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 public final class SingleThreadedResponseServer
 {
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
-    private long remainingMessages = Constants.MEASUREMENT_MESSAGES + Constants.WARMUP_MESSAGES;
+    private final Timer timer;
 
     SingleThreadedResponseServer(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -21,45 +25,53 @@ public final class SingleThreadedResponseServer
         this.inputChannel = inputChannel;
         this.outputChannel = outputChannel;
         this.payload = ByteBuffer.allocateDirect(payloadSize);
+        this.timer = Timer.expiringIn(Constants.RUNTIME_MINUTES, TimeUnit.MINUTES);
     }
 
     public void receiveLoop()
     {
+        System.out.printf("Starting response server at %s%n", Instant.now());
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
-        while (!Thread.currentThread().isInterrupted())
+        try
         {
-            try
+            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
             {
-                final int read = inputChannel.read(payload);
-                if (read == -1)
+                try
                 {
-                    Io.closeQuietly(inputChannel);
-                    Io.closeQuietly(outputChannel);
-                    return;
-                }
-                if (payload.remaining() == 0)
-                {
-                    remainingMessages--;
-                    payload.flip();
-
-                    while (payload.remaining() != 0)
+                    final int read = inputChannel.read(payload);
+                    if (read == -1)
                     {
-                        outputChannel.write(payload);
+                        Io.closeQuietly(inputChannel);
+                        Io.closeQuietly(outputChannel);
+                        break;
                     }
-                    payload.clear();
+                    if (payload.remaining() == 0)
+                    {
+                        payload.flip();
+
+                        while (payload.remaining() != 0)
+                        {
+                            outputChannel.write(payload);
+                        }
+                        payload.clear();
+                    }
+                }
+                catch (IOException e)
+                {
+                    System.err.printf("Failed to respond to request: %s. Exiting.%n", e.getMessage());
+                    break;
                 }
             }
-            catch (IOException e)
+            while (timer.isBeforeDeadline())
             {
-                System.err.printf("Failed to respond to request: %s. Exiting.%n", e.getMessage());
-                return;
+                LockSupport.parkNanos(1);
             }
-            if (remainingMessages == 0)
-            {
-                Io.closeQuietly(inputChannel);
-                Io.closeQuietly(outputChannel);
-                return;
-            }
+            Io.closeQuietly(inputChannel);
+            Io.closeQuietly(outputChannel);
+        }
+        finally
+        {
+            System.out.printf("Response loop complete at %s%n", Instant.now());
         }
     }
 }

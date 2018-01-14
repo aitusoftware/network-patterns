@@ -1,6 +1,7 @@
 package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
+import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.HistogramFactory;
 import com.aitusoftware.network.patterns.config.Mode;
 import com.aitusoftware.network.patterns.config.Threading;
@@ -66,8 +67,8 @@ public final class RunAllMain
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
-            clientStart.get(1, TimeUnit.MINUTES);
-            serverStart.get(1, TimeUnit.MINUTES);
+            clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
+            serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
         finally
         {
@@ -107,8 +108,8 @@ public final class RunAllMain
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
-            clientStart.get(1, TimeUnit.MINUTES);
-            serverStart.get(1, TimeUnit.MINUTES);
+            clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
+            serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
         }
         finally
         {

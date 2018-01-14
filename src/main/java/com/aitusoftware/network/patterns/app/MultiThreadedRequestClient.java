@@ -1,7 +1,9 @@
 package com.aitusoftware.network.patterns.app;
 
+import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Messages;
 import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
+import com.aitusoftware.network.patterns.measurement.Timer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -12,21 +14,20 @@ import java.util.concurrent.TimeUnit;
 
 public final class MultiThreadedRequestClient
 {
-    private static final long TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(1L);
     private static final long BASE_TIMESTAMP = System.nanoTime();
     private final ReadableByteChannel inputChannel;
     private final WritableByteChannel outputChannel;
     private final ByteBuffer requestBuffer;
     private final ByteBuffer responseBuffer;
     private final long warmupMessages;
-    private final long measurementMessages;
     private final LatencyRecorder latencyRecorder;
-    private final Exchanger exchanger = new Exchanger();
+    private final Exchanger exchanger;
+    private final Timer timer;
 
     MultiThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
             final int payloadSize, final LatencyRecorder latencyRecorder,
-            final long warmupMessages, final long measurementMessages)
+            final long warmupMessages)
     {
         this.inputChannel = inputChannel;
         this.outputChannel = outputChannel;
@@ -34,21 +35,22 @@ public final class MultiThreadedRequestClient
         responseBuffer = ByteBuffer.allocateDirect(payloadSize);
         this.latencyRecorder = latencyRecorder;
         this.warmupMessages = warmupMessages;
-        this.measurementMessages = measurementMessages;
+        this.timer = Timer.expiringIn(Constants.RUNTIME_MINUTES, TimeUnit.MINUTES);
+        exchanger = new Exchanger(timer);
     }
 
     void sendLoop()
     {
+        System.out.printf("Starting request client at %s%n", Instant.now());
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
-        long totalMessagesRemaining = warmupMessages + measurementMessages;
         short sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
         final long startNanos = System.nanoTime();
 
         try
         {
-            while (!Thread.currentThread().isInterrupted() && totalMessagesRemaining-- != 0)
+            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
             {
                 try
                 {
@@ -58,7 +60,8 @@ public final class MultiThreadedRequestClient
                     if (warmUpMessagesRemaining != 0)
                     {
                         warmUpMessagesRemaining--;
-                        if (warmUpMessagesRemaining % histogramClearInterval == 0)
+                        if (warmUpMessagesRemaining % histogramClearInterval == 0
+                                || warmUpMessagesRemaining == 0)
                         {
                             latencyRecorder.reset();
                         }
@@ -75,15 +78,15 @@ public final class MultiThreadedRequestClient
         finally
         {
             closeConnections();
+            System.out.printf("Request workload complete at %s%n", Instant.now());
+            latencyRecorder.complete();
         }
-
-        latencyRecorder.complete();
     }
 
     void receiveLoop()
     {
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
-        while (!Thread.currentThread().isInterrupted())
+        while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
         {
             try
             {
@@ -111,6 +114,10 @@ public final class MultiThreadedRequestClient
     private void recordLatency(final short sequenceNumber, final long startNanos)
     {
         final long response = exchanger.get();
+        if (Exchanger.isUnset(response))
+        {
+            return;
+        }
 
         final long receivedTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
         final short receivedSequence = (short) (response >> 48);
@@ -122,18 +129,7 @@ public final class MultiThreadedRequestClient
         else
         {
             final long latencyNanos = receivedTime - Messages.maskTimestamp(response);
-            if (latencyNanos < 0)
-            {
-                latencyRecorder.recordValue(latencyNanos + Integer.MAX_VALUE);
-                System.out.printf("at %s %d, received: %d, sent: %d, latency: %d%n",
-                        Instant.now(),
-                        System.nanoTime(),
-                        (receivedTime & TIMESTAMP_MASK), response >> 32, latencyNanos);
-            }
-            else
-            {
-                latencyRecorder.recordValue(latencyNanos);
-            }
+            latencyRecorder.recordValue(latencyNanos);
         }
     }
 
@@ -142,8 +138,6 @@ public final class MultiThreadedRequestClient
         Io.closeQuietly(inputChannel);
         Io.closeQuietly(outputChannel);
     }
-
-    private static final long TIMESTAMP_MASK = 0b00000000_00000000_01111111_11111111_11111111_11111111_11111111_11111111L;
 
     private void sendMessage(final short sequenceNumber, final long startNanos) throws IOException
     {

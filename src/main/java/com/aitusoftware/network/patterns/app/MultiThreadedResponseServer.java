@@ -1,11 +1,14 @@
 package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Constants;
+import com.aitusoftware.network.patterns.measurement.Timer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 
 public final class MultiThreadedResponseServer
 {
@@ -13,8 +16,8 @@ public final class MultiThreadedResponseServer
     private final WritableByteChannel outputChannel;
     private final ByteBuffer requestBuffer;
     private final ByteBuffer responseBuffer;
-    private final Exchanger exchanger = new Exchanger();
-    private long remainingMessages = Constants.MEASUREMENT_MESSAGES + Constants.WARMUP_MESSAGES;
+    private final Exchanger exchanger;
+    private final Timer timer;
     private volatile Thread responseThread;
 
     MultiThreadedResponseServer(
@@ -25,39 +28,44 @@ public final class MultiThreadedResponseServer
         this.outputChannel = outputChannel;
         this.requestBuffer = ByteBuffer.allocateDirect(payloadSize);
         this.responseBuffer = ByteBuffer.allocateDirect(payloadSize);
+        this.timer = Timer.expiringIn(Constants.RUNTIME_MINUTES, TimeUnit.MINUTES);
+        exchanger = new Exchanger(timer);
     }
 
     void receiveLoop()
     {
+        System.out.printf("Starting response server at %s%n", Instant.now());
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
-        while (!Thread.currentThread().isInterrupted())
+        try
         {
-            try
+            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
             {
-                final int read = inputChannel.read(requestBuffer);
-                if (read == -1)
+                try
                 {
-                    closeChannels();
+                    final int read = inputChannel.read(requestBuffer);
+                    if (read == -1)
+                    {
+                        closeChannels();
+                        return;
+                    }
+                    if (requestBuffer.remaining() == 0)
+                    {
+                        requestBuffer.flip();
+                        exchanger.set(requestBuffer.getLong(0));
+                        requestBuffer.clear();
+                    }
+                }
+                catch (IOException e)
+                {
+                    System.err.printf("Failed to receive request: %s. Exiting.%n", e.getMessage());
                     return;
                 }
-                if (requestBuffer.remaining() == 0)
-                {
-                    remainingMessages--;
-                    requestBuffer.flip();
-                    exchanger.set(requestBuffer.getLong(0));
-                    requestBuffer.clear();
-                }
             }
-            catch (IOException e)
-            {
-                System.err.printf("Failed to receive request: %s. Exiting.%n", e.getMessage());
-                return;
-            }
-            if (remainingMessages == 0)
-            {
-                closeChannels();
-                return;
-            }
+        }
+        finally
+        {
+            closeChannels();
+            System.out.printf("Response loop complete at %s%n", Instant.now());
         }
     }
 
@@ -65,7 +73,7 @@ public final class MultiThreadedResponseServer
     {
         responseThread = Thread.currentThread();
         Thread.currentThread().setName(getClass().getSimpleName() + "-respondLoop");
-        while (!Thread.currentThread().isInterrupted())
+        while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
         {
             final long echoPayload = exchanger.get();
 

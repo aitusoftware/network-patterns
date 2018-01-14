@@ -83,9 +83,9 @@ public final class DuplexUdpRunner
         switch (threading)
         {
             case SINGLE_THREADED:
-                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop);
             case MULTI_THREADED:
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES);
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
                 executor.submit(client::receiveLoop);
                 return executor.submit(client::sendLoop);
             default:

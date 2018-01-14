@@ -16,7 +16,6 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-import static com.aitusoftware.network.patterns.config.Constants.MEASUREMENT_MESSAGES;
 import static com.aitusoftware.network.patterns.config.Constants.WARMUP_MESSAGES;
 
 public final class DuplexTcpRunner
@@ -85,9 +84,9 @@ public final class DuplexTcpRunner
         switch (threading)
         {
             case SINGLE_THREADED:
-                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, WARMUP_MESSAGES, MEASUREMENT_MESSAGES)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, WARMUP_MESSAGES)::sendLoop);
             case MULTI_THREADED:
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, WARMUP_MESSAGES, MEASUREMENT_MESSAGES);
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, WARMUP_MESSAGES);
                 executor.submit(client::receiveLoop);
                 return executor.submit(client::sendLoop);
             default:

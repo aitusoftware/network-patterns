@@ -1,12 +1,15 @@
 package com.aitusoftware.network.patterns.app;
 
+import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Messages;
 import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
+import com.aitusoftware.network.patterns.measurement.Timer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 public final class SingleThreadedRequestClient
@@ -17,34 +20,34 @@ public final class SingleThreadedRequestClient
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
     private final long warmupMessages;
-    private final long measurementMessages;
     private final LatencyRecorder latencyRecorder;
+    private final Timer timer;
 
     SingleThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
             final int payloadSize, final LatencyRecorder latencyRecorder,
-            final long warmupMessages, final long measurementMessages)
+            final long warmupMessages)
     {
         this.inputChannel = inputChannel;
         this.outputChannel = outputChannel;
         payload = ByteBuffer.allocateDirect(payloadSize);
         this.latencyRecorder = latencyRecorder;
         this.warmupMessages = warmupMessages;
-        this.measurementMessages = measurementMessages;
+        this.timer = Timer.expiringIn(Constants.RUNTIME_MINUTES, TimeUnit.MINUTES);
     }
 
     void sendLoop()
     {
+        System.out.printf("Starting request client at %s%n", Instant.now());
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
-        long totalMessagesRemaining = warmupMessages + measurementMessages;
         short sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
         final long startNanos = System.nanoTime();
 
         try
         {
-            while (!Thread.currentThread().isInterrupted() && totalMessagesRemaining-- != 0)
+            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
             {
                 warmUpMessagesRemaining =
                         recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining,
@@ -52,12 +55,13 @@ public final class SingleThreadedRequestClient
                 sequenceNumber++;
             }
 
-            latencyRecorder.complete();
         }
         finally
         {
             Io.closeQuietly(outputChannel);
             Io.closeQuietly(inputChannel);
+            latencyRecorder.complete();
+            System.out.printf("Request workload complete at %s%n", Instant.now());
         }
     }
 
@@ -71,7 +75,7 @@ public final class SingleThreadedRequestClient
             if (warmUpMessagesRemaining != 0)
             {
                 warmUpMessagesRemaining--;
-                if (warmUpMessagesRemaining % histogramClearInterval == 0)
+                if (warmUpMessagesRemaining % histogramClearInterval == 0 || warmUpMessagesRemaining == 0)
                 {
                     latencyRecorder.reset();
                 }
@@ -106,8 +110,7 @@ public final class SingleThreadedRequestClient
     private void receiveMessage() throws IOException
     {
         payload.clear();
-        final long responseTimeout = System.nanoTime() + TIMEOUT_NANOS;
-        while (payload.remaining() != 0 && System.nanoTime() < responseTimeout)
+        while (payload.remaining() != 0 && timer.isBeforeDeadline())
         {
             inputChannel.read(payload);
         }
