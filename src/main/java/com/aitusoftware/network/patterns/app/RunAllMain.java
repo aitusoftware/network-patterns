@@ -22,7 +22,6 @@ public final class RunAllMain
     public static void main(String[] args) throws Exception
     {
         // TODO split into client/server
-        // TODO sample threads before test, assert that no threads remain after test returns
         final ThreadDetector detector = new ThreadDetector();
         detector.recordThreads();
         for (Connection connection : Connection.values())
@@ -33,8 +32,8 @@ public final class RunAllMain
                     {
                         runTcpTest(connection, transport, threading);
                         detector.assertNoNewThreads();
-//                        runUdpTest(connection, transport, threading);
-
+                        runUdpTest(connection, transport, threading);
+                        detector.assertNoNewThreads();
                     }
                 }
         }
@@ -72,8 +71,12 @@ public final class RunAllMain
         }
         finally
         {
+            threadPool.shutdown();
             threadPool.shutdownNow();
-            threadPool.awaitTermination(5, TimeUnit.SECONDS);
+            if (!threadPool.awaitTermination(15, TimeUnit.SECONDS))
+            {
+                throw new AssertionError("Thread pool did not shut down");
+            }
         }
     }
 
@@ -96,10 +99,10 @@ public final class RunAllMain
                             e.printStackTrace();
                         }
                     }, d -> {});
-            final Future<Future<?>> server = threadPool.submit(() -> SingleThreadedUdpTestMain.startService(
+            final Future<Future<?>> server = threadPool.submit(() -> UdpServiceFactory.startService(
                     Mode.SERVER, transport, threading, connection, threadPool, latencyRecorder));
 
-            final Future<Future<?>> client = threadPool.submit(() -> SingleThreadedUdpTestMain.startService(
+            final Future<Future<?>> client = threadPool.submit(() -> UdpServiceFactory.startService(
                     Mode.CLIENT, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
@@ -109,7 +112,12 @@ public final class RunAllMain
         }
         finally
         {
+            threadPool.shutdown();
             threadPool.shutdownNow();
+            if (!threadPool.awaitTermination(15, TimeUnit.SECONDS))
+            {
+                throw new AssertionError("Thread pool did not shut down");
+            }
         }
     }
 }

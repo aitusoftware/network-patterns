@@ -15,7 +15,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public final class SingleThreadedUdpTestMain
+public final class UdpServiceFactory
 {
     public static void main(String[] args) throws InterruptedException, ExecutionException, TimeoutException
     {
@@ -46,13 +46,13 @@ public final class SingleThreadedUdpTestMain
         switch (transport)
         {
             case SIMPLEX:
-                final SingleThreadedSimplexUdpRunner simplex = new SingleThreadedSimplexUdpRunner(
-                        mode, connection, address, pool, 256);
+                final SimplexUdpRunner simplex = new SimplexUdpRunner(
+                        mode, connection, threading, address, pool, 256);
 
                 return simplex.start(latencyRecorder);
             case DUPLEX:
-                final SingleThreadedDuplexUdpRunner duplex = new SingleThreadedDuplexUdpRunner(
-                        mode, connection, address, pool, 256);
+                final DuplexUdpRunner duplex = new DuplexUdpRunner(
+                        mode, connection, threading, address, pool, 256);
 
                 return duplex.start(latencyRecorder);
             default:

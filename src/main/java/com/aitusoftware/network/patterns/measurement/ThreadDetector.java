@@ -15,12 +15,12 @@ public final class ThreadDetector
 
     public void assertNoNewThreads()
     {
-        Thread.getAllStackTraces().keySet().stream().forEach(t -> {
+        Thread.getAllStackTraces().keySet().forEach(t -> {
             final String threadId = toId(t);
-            if (!threadIds.contains(threadId))
+            if (!threadIds.contains(threadId) && t.isAlive())
             {
-                throw new AssertionError("Found rogue thread: " + t.getName() + "\n" +
-                        Arrays.toString(t.getStackTrace()));
+                throw new AssertionError("Found rogue thread: " + t.getName() + " in state: " + t.getState() + "\n" +
+                        Arrays.stream(t.getStackTrace()).map(e -> e.toString() + "\n").reduce("", (a, b) -> a + b));
             }
         });
     }

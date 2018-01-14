@@ -10,12 +10,11 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.nio.channels.ServerSocketChannel;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.DatagramChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-public final class SingleThreadedDuplexTcpRunner
+public final class DuplexUdpRunner
 {
     private final Mode mode;
     private final Connection connection;
@@ -24,7 +23,7 @@ public final class SingleThreadedDuplexTcpRunner
     private final ExecutorService executor;
     private final int payloadSize;
 
-    SingleThreadedDuplexTcpRunner(
+    DuplexUdpRunner(
             final Mode mode, final Connection connection,
             final Threading threading, final InetSocketAddress address, final ExecutorService executor,
             final int payloadSize)
@@ -43,11 +42,11 @@ public final class SingleThreadedDuplexTcpRunner
         switch (mode)
         {
             case CLIENT:
-                final SocketChannel clientOutput = connectToRemoteAddress(address);
+                final DatagramChannel clientOutput = connectToRemoteAddress(address);
                 return startClient(latencyRecorder, clientOutput);
 
             case SERVER:
-                final SocketChannel serverInput = acceptConnection(address);
+                final DatagramChannel serverInput = acceptConnection(address);
                 return startServer(serverInput);
 
             default:
@@ -55,11 +54,11 @@ public final class SingleThreadedDuplexTcpRunner
         }
     }
 
-    private Future<?> startServer(final SocketChannel serverInput)
+    private Future<?> startServer(final DatagramChannel serverInput)
     {
         final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
         final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
-        final SocketChannel serverOutput = connectToRemoteAddress(remoteAddress);
+        final DatagramChannel serverOutput = connectToRemoteAddress(remoteAddress);
 
         switch (threading)
         {
@@ -71,79 +70,64 @@ public final class SingleThreadedDuplexTcpRunner
                 return executor.submit(server::receiveLoop);
             default:
                 throw new IllegalArgumentException();
+
         }
     }
 
-    private Future<?> startClient(final LatencyRecorder latencyRecorder, final SocketChannel clientOutput)
+    private Future<?> startClient(final LatencyRecorder latencyRecorder, final DatagramChannel clientOutput)
     {
+        // TODO UDP/TCP interface bind config for all modes
         final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
-        final SocketChannel clientInput = acceptConnection(bindAddress);
+        final DatagramChannel clientInput = acceptConnection(bindAddress);
+
         switch (threading)
         {
             case SINGLE_THREADED:
-                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES)::sendLoop);
             case MULTI_THREADED:
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1500_000);
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES);
                 executor.submit(client::receiveLoop);
                 return executor.submit(client::sendLoop);
             default:
                 throw new IllegalArgumentException();
-
         }
     }
 
-    private SocketChannel acceptConnection(final InetSocketAddress bindAddress)
+    private DatagramChannel acceptConnection(final InetSocketAddress bindAddress)
     {
-        try
-        {
-            final ServerSocketChannel serverSocket = ServerSocketChannel.open();
-            serverSocket.bind(bindAddress);
-            serverSocket.configureBlocking(true);
-
-            final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
-            while (!Thread.currentThread().isInterrupted() && System.currentTimeMillis() < timeoutAt)
-            {
-                try
-                {
-                    final SocketChannel channel = serverSocket.accept();
-                    channel.configureBlocking(connection.isBlocking());
-                    while (!channel.finishConnect())
-                    {
-                        Thread.yield();
-                    }
-
-                    Io.closeQuietly(serverSocket);
-                    return channel;
-                }
-                catch (IOException e)
-                {
-                    // server not ready
-                }
-            }
-
-            throw new UncheckedIOException(
-                    new IOException("Could not connect to server at " + bindAddress + " within timeout"));
-
-        }
-        catch (IOException e)
-        {
-            throw new UncheckedIOException("Could not bind to address: " + bindAddress, e);
-        }
-    }
-
-    private SocketChannel connectToRemoteAddress(final InetSocketAddress remoteAddress)
-    {
+        final UdpHandshake handshake = new UdpHandshake();
         final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
         while (!Thread.currentThread().isInterrupted() && System.currentTimeMillis() < timeoutAt)
         {
             try
             {
-                final SocketChannel channel = SocketChannel.open(remoteAddress);
+                final DatagramChannel channel = DatagramChannel.open();
+                channel.bind(bindAddress);
                 channel.configureBlocking(connection.isBlocking());
-                while (!channel.finishConnect())
-                {
-                    Thread.yield();
-                }
+                handshake.performReceive(channel);
+
+                return channel;
+            }
+            catch (IOException e)
+            {
+                // server not ready
+            }
+        }
+
+        throw new UncheckedIOException(
+                new IOException("Could not connect to server at " + bindAddress + " within timeout"));
+    }
+
+    private DatagramChannel connectToRemoteAddress(final InetSocketAddress remoteAddress)
+    {
+        final long timeoutAt = System.currentTimeMillis() + Constants.CONNECT_TIMEOUT_MILLIS;
+        final UdpHandshake handshake = new UdpHandshake();
+        while (!Thread.currentThread().isInterrupted() && System.currentTimeMillis() < timeoutAt)
+        {
+            try
+            {
+                final DatagramChannel channel = handshake.initiateSend(remoteAddress);
+                channel.configureBlocking(connection.isBlocking());
                 return channel;
             }
             catch (IOException e)

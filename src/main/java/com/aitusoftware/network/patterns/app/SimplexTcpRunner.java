@@ -15,7 +15,7 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-public final class SingleThreadedSimplexTcpRunner
+public final class SimplexTcpRunner
 {
     private final Mode mode;
     private final Connection connection;
@@ -24,7 +24,7 @@ public final class SingleThreadedSimplexTcpRunner
     private final ExecutorService executor;
     private final int payloadSize;
 
-    SingleThreadedSimplexTcpRunner(
+    SimplexTcpRunner(
             final Mode mode, final Connection connection,
             final Threading threading, final InetSocketAddress address,
             final ExecutorService executor,
@@ -76,10 +76,10 @@ public final class SingleThreadedSimplexTcpRunner
         switch (threading)
         {
             case SINGLE_THREADED:
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1500_000)::sendLoop);
+                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES)::sendLoop);
             case MULTI_THREADED:
 
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1500_000);
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES);
                 executor.submit(client::receiveLoop);
                 return executor.submit(client::sendLoop);
             default:

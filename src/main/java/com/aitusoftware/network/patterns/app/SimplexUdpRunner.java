@@ -3,6 +3,7 @@ package com.aitusoftware.network.patterns.app;
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Mode;
+import com.aitusoftware.network.patterns.config.Threading;
 import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 
 import java.io.IOException;
@@ -12,22 +13,24 @@ import java.nio.channels.DatagramChannel;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
-public final class SingleThreadedSimplexUdpRunner
+public final class SimplexUdpRunner
 {
     private final Mode mode;
     private final Connection connection;
+    private final Threading threading;
     private final InetSocketAddress address;
     private final ExecutorService executor;
     private final int payloadSize;
 
-    SingleThreadedSimplexUdpRunner(
+    SimplexUdpRunner(
             final Mode mode, final Connection connection,
-            final InetSocketAddress address, final ExecutorService executor,
+            final Threading threading, final InetSocketAddress address, final ExecutorService executor,
             final int payloadSize)
     {
 
         this.mode = mode;
         this.connection = connection;
+        this.threading = threading;
         this.address = address;
         this.executor = executor;
         this.payloadSize = payloadSize;
@@ -39,12 +42,44 @@ public final class SingleThreadedSimplexUdpRunner
         {
             case CLIENT:
                 final DatagramChannel clientChannel = connectToRemoteAddress();
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+                return startClient(latencyRecorder, clientChannel);
 
             case SERVER:
                 final DatagramChannel serverChannel = acceptConnection();
-                return executor.submit(new SingleThreadedResponseServer(serverChannel, serverChannel, payloadSize)::receiveLoop);
+                return startServer(serverChannel);
 
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    private Future<?> startServer(final DatagramChannel serverChannel)
+    {
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedResponseServer(serverChannel, serverChannel, payloadSize)::receiveLoop);
+            case MULTI_THREADED:
+                final MultiThreadedResponseServer server = new MultiThreadedResponseServer(serverChannel, serverChannel, payloadSize);
+                executor.submit(server::responseLoop);
+                return executor.submit(server::receiveLoop);
+            default:
+                throw new IllegalArgumentException();
+
+        }
+    }
+
+    private Future<?> startClient(final LatencyRecorder latencyRecorder, final DatagramChannel clientChannel)
+    {
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES)::sendLoop);
+            case MULTI_THREADED:
+
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES, Constants.MEASUREMENT_MESSAGES);
+                executor.submit(client::receiveLoop);
+                return executor.submit(client::sendLoop);
             default:
                 throw new IllegalArgumentException();
         }

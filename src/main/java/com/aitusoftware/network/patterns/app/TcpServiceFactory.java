@@ -50,12 +50,12 @@ public final class TcpServiceFactory
         switch (transport)
         {
             case SIMPLEX:
-                final SingleThreadedSimplexTcpRunner simplex = new SingleThreadedSimplexTcpRunner(
+                final SimplexTcpRunner simplex = new SimplexTcpRunner(
                         mode, connection, threading, address, pool, 256);
 
                 return simplex.start(latencyRecorder);
             case DUPLEX:
-                final SingleThreadedDuplexTcpRunner duplex = new SingleThreadedDuplexTcpRunner(
+                final DuplexTcpRunner duplex = new DuplexTcpRunner(
                         mode, connection, threading, address, pool, 256);
 
                 return duplex.start(latencyRecorder);
