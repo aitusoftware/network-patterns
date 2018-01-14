@@ -3,6 +3,7 @@ package com.aitusoftware.network.patterns.app;
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Mode;
+import com.aitusoftware.network.patterns.config.Threading;
 import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 
 import java.io.IOException;
@@ -18,18 +19,20 @@ public final class SingleThreadedDuplexTcpRunner
 {
     private final Mode mode;
     private final Connection connection;
+    private final Threading threading;
     private final InetSocketAddress address;
     private final ExecutorService executor;
     private final int payloadSize;
 
     SingleThreadedDuplexTcpRunner(
             final Mode mode, final Connection connection,
-            final InetSocketAddress address, final ExecutorService executor,
+            final Threading threading, final InetSocketAddress address, final ExecutorService executor,
             final int payloadSize)
     {
 
         this.mode = mode;
         this.connection = connection;
+        this.threading = threading;
         this.address = address;
         this.executor = executor;
         this.payloadSize = payloadSize;
@@ -41,19 +44,51 @@ public final class SingleThreadedDuplexTcpRunner
         {
             case CLIENT:
                 final SocketChannel clientOutput = connectToRemoteAddress(address);
-                final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
-                final SocketChannel clientInput = acceptConnection(bindAddress);
-                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 500_000)::sendLoop);
+                return startClient(latencyRecorder, clientOutput);
 
             case SERVER:
                 final SocketChannel serverInput = acceptConnection(address);
-                final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
-                final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
-                final SocketChannel serverOutput = connectToRemoteAddress(remoteAddress);
-                return executor.submit(new SingleThreadedResponseServer(serverInput, serverOutput, payloadSize)::receiveLoop);
+                return startServer(serverInput);
 
             default:
                 throw new IllegalArgumentException();
+        }
+    }
+
+    private Future<?> startServer(final SocketChannel serverInput)
+    {
+        final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
+        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, address.getPort() + 1);
+        final SocketChannel serverOutput = connectToRemoteAddress(remoteAddress);
+
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedResponseServer(serverInput, serverOutput, payloadSize)::receiveLoop);
+            case MULTI_THREADED:
+                final MultiThreadedResponseServer server = new MultiThreadedResponseServer(serverInput, serverOutput, payloadSize);
+                executor.submit(server::responseLoop);
+                return executor.submit(server::receiveLoop);
+            default:
+                throw new IllegalArgumentException();
+        }
+    }
+
+    private Future<?> startClient(final LatencyRecorder latencyRecorder, final SocketChannel clientOutput)
+    {
+        final InetSocketAddress bindAddress = new InetSocketAddress("0.0.0.0", address.getPort() + 1);
+        final SocketChannel clientInput = acceptConnection(bindAddress);
+        switch (threading)
+        {
+            case SINGLE_THREADED:
+                return executor.submit(new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1_500_000)::sendLoop);
+            case MULTI_THREADED:
+                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, 500_000, 1500_000);
+                executor.submit(client::receiveLoop);
+                return executor.submit(client::sendLoop);
+            default:
+                throw new IllegalArgumentException();
+
         }
     }
 

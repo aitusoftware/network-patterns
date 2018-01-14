@@ -4,7 +4,6 @@ import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Constants;
 import com.aitusoftware.network.patterns.config.Mode;
 import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
-import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -34,10 +33,8 @@ public final class SingleThreadedSimplexUdpRunner
         this.payloadSize = payloadSize;
     }
 
-    Future<?> start()
+    Future<?> start(final LatencyRecorder latencyRecorder)
     {
-        final LatencyRecorder latencyRecorder =
-                SimpleHistogramRecorder.printToStdOut();
         switch (mode)
         {
             case CLIENT:

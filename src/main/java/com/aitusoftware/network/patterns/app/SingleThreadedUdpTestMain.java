@@ -2,7 +2,10 @@ package com.aitusoftware.network.patterns.app;
 
 import com.aitusoftware.network.patterns.config.Connection;
 import com.aitusoftware.network.patterns.config.Mode;
+import com.aitusoftware.network.patterns.config.Threading;
 import com.aitusoftware.network.patterns.config.Transport;
+import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
+import com.aitusoftware.network.patterns.measurement.SimpleHistogramRecorder;
 
 import java.net.InetSocketAddress;
 import java.util.concurrent.ExecutionException;
@@ -18,31 +21,40 @@ public final class SingleThreadedUdpTestMain
     {
         final Mode mode = Mode.valueOf(args[0]);
         final Transport transport = Transport.valueOf(args[1]);
-        final InetSocketAddress address = new InetSocketAddress("127.0.0.1", 15676);
+        final Connection connection = Connection.valueOf(args[2]);
 
         final ExecutorService pool = Executors.newFixedThreadPool(2);
-        final Future<?> task = runTask(mode, address, pool, transport);
+        final LatencyRecorder latencyRecorder = SimpleHistogramRecorder.printToStdOut();
+        final Future<?> task = startService(mode, transport, Threading.SINGLE_THREADED, connection, pool, latencyRecorder);
 
         task.get(20, TimeUnit.MINUTES);
         pool.shutdownNow();
     }
 
+    static Future<?> startService(final Mode mode, final Transport transport, final Threading threading,
+                                  final Connection connection, final ExecutorService pool,
+                                  final LatencyRecorder latencyRecorder)
+    {
+        final InetSocketAddress address = new InetSocketAddress("127.0.0.1", 15676);
+        return runTask(mode, address, pool, transport, connection, threading, latencyRecorder);
+    }
+
     private static Future<?> runTask(
             final Mode mode, final InetSocketAddress address,
-            final ExecutorService pool, final Transport transport)
+            final ExecutorService pool, final Transport transport, final Connection connection, final Threading threading, final LatencyRecorder latencyRecorder)
     {
         switch (transport)
         {
             case SIMPLEX:
                 final SingleThreadedSimplexUdpRunner simplex = new SingleThreadedSimplexUdpRunner(
-                        mode, Connection.NON_BLOCKING, address, pool, 256);
+                        mode, connection, address, pool, 256);
 
-                return simplex.start();
+                return simplex.start(latencyRecorder);
             case DUPLEX:
                 final SingleThreadedDuplexUdpRunner duplex = new SingleThreadedDuplexUdpRunner(
-                        mode, Connection.NON_BLOCKING, address, pool, 256);
+                        mode, connection, address, pool, 256);
 
-                return duplex.start();
+                return duplex.start(latencyRecorder);
             default:
                 throw new IllegalArgumentException();
         }

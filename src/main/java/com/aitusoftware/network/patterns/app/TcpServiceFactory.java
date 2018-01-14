@@ -15,7 +15,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public final class SingleThreadedTcpTestMain
+public final class TcpServiceFactory
 {
     public static void main(String... args) throws InterruptedException, ExecutionException, TimeoutException
     {
@@ -56,7 +56,7 @@ public final class SingleThreadedTcpTestMain
                 return simplex.start(latencyRecorder);
             case DUPLEX:
                 final SingleThreadedDuplexTcpRunner duplex = new SingleThreadedDuplexTcpRunner(
-                        mode, connection, address, pool, 256);
+                        mode, connection, threading, address, pool, 256);
 
                 return duplex.start(latencyRecorder);
             default:
