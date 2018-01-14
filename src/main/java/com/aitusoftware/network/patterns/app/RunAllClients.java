@@ -20,7 +20,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 
 public final class RunAllClients
 {
@@ -77,12 +76,10 @@ public final class RunAllClients
                     Mode.CLIENT, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> clientStart = client.get(1, TimeUnit.MINUTES);
-            threadPool.submit(() -> {
-                LockSupport.parkNanos(TimeUnit.MINUTES.toNanos(Constants.RUNTIME_MINUTES));
-                clientStart.cancel(true);
-            });
+            System.out.println("Client connected at " + Instant.now());
             Scheduler.delayedCancel(clientStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             clientStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
+            System.out.println("Client completed at " + Instant.now());
         }
         catch (RuntimeException e)
         {

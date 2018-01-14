@@ -83,6 +83,7 @@ public final class SingleThreadedRequestClient
         catch (IOException e)
         {
             System.err.printf("Failed to make request: %s. Exiting.%n", e.getMessage());
+            e.printStackTrace();
         }
         return warmUpMessagesRemaining;
     }

@@ -76,8 +76,10 @@ public final class RunAllServers
                     Mode.SERVER, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
+            System.out.printf("Server connected at %s%n", Instant.now());
             Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
+            System.out.printf("Server completed at %s%n", Instant.now());
         }
         catch (RuntimeException e)
         {
@@ -122,8 +124,10 @@ public final class RunAllServers
                     Mode.SERVER, transport, threading, connection, threadPool, latencyRecorder));
 
             final Future<?> serverStart = server.get(1, TimeUnit.MINUTES);
+            System.out.printf("Server connected at %s%n", Instant.now());
             Scheduler.delayedCancel(serverStart, Constants.RUNTIME_MINUTES, TimeUnit.MINUTES, threadPool);
             serverStart.get(Constants.RUNTIME_MINUTES + 1, TimeUnit.MINUTES);
+            System.out.printf("Server completed at %s%n", Instant.now());
         }
         catch (RuntimeException e)
         {

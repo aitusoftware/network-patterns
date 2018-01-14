@@ -70,8 +70,9 @@ public final class MultiThreadedRequestClient
                 }
                 catch (IOException e)
                 {
-                    closeConnections();
                     System.err.printf("Failed to make request: %s. Exiting.%n", e.getMessage());
+                    e.printStackTrace();
+                    closeConnections();
                 }
             }
         }
