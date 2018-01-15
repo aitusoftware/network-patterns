@@ -37,7 +37,7 @@ public final class TcpServiceFactory
             final Connection connection, final ExecutorService pool,
             final LatencyRecorder latencyRecorder)
     {
-        final InetSocketAddress address = new InetSocketAddress(Constants.CONNECT_ADDRESS, Constants.SERVER_LISTEN_PORT);
+        final InetSocketAddress address = new InetSocketAddress(mode == Mode.CLIENT ? Constants.CONNECT_ADDRESS : Constants.BIND_ADDRESS, Constants.SERVER_LISTEN_PORT);
 
         return runTask(mode, address, pool, transport, threading, connection, latencyRecorder);
     }

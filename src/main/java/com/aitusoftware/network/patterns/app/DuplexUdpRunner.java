@@ -103,6 +103,7 @@ public final class DuplexUdpRunner
             {
                 final DatagramChannel channel = DatagramChannel.open();
                 channel.bind(bindAddress);
+                System.out.printf("UDP service binding to %s%n", bindAddress);
                 channel.setOption(StandardSocketOptions.SO_REUSEADDR, true);
                 channel.configureBlocking(connection.isBlocking());
                 handshake.performReceive(channel);
@@ -127,6 +128,7 @@ public final class DuplexUdpRunner
         {
             try
             {
+                System.out.printf("UDP service connecting to %s%n", remoteAddress);
                 final DatagramChannel channel = handshake.initiateSend(remoteAddress);
                 channel.configureBlocking(connection.isBlocking());
                 return channel;
