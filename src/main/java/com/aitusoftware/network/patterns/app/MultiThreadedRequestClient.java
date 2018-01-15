@@ -41,6 +41,7 @@ public final class MultiThreadedRequestClient
 
     void sendLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.CLIENT_OUTBOUND);
         System.out.printf("Starting request client at %s%n", Instant.now());
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
@@ -86,6 +87,7 @@ public final class MultiThreadedRequestClient
 
     void receiveLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.CLIENT_INBOUND);
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
         while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
         {

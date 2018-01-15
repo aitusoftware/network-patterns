@@ -34,6 +34,7 @@ public final class MultiThreadedResponseServer
 
     void receiveLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.SERVER_INBOUND);
         System.out.printf("Starting response server at %s%n", Instant.now());
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
         try
@@ -71,6 +72,7 @@ public final class MultiThreadedResponseServer
 
     void responseLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.SERVER_OUTBOUND);
         responseThread = Thread.currentThread();
         Thread.currentThread().setName(getClass().getSimpleName() + "-respondLoop");
         while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())

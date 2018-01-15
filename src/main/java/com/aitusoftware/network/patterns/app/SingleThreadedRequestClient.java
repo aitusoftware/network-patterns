@@ -37,6 +37,7 @@ public final class SingleThreadedRequestClient
 
     void sendLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.CLIENT_OUTBOUND);
         System.out.printf("Starting request client at %s%n", Instant.now());
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;

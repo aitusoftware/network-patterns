@@ -30,6 +30,7 @@ public final class SingleThreadedResponseServer
 
     public void receiveLoop()
     {
+        ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.SERVER_INBOUND);
         System.out.printf("Starting response server at %s%n", Instant.now());
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
         try
