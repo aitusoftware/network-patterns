@@ -3,6 +3,8 @@ package com.aitusoftware.network.patterns.measurement;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 
 public final class ThreadDetector
 {
@@ -17,20 +19,30 @@ public final class ThreadDetector
     {
         Thread.getAllStackTraces().keySet().forEach(t -> {
             final String threadId = toId(t);
-            if (!threadIds.contains(threadId) && t.isAlive())
+            if (!threadIds.contains(threadId) && isStillActive(t))
             {
                 final long terminationTimeout = System.currentTimeMillis() + 10_000L;
-                while (t.isAlive() && System.currentTimeMillis() < terminationTimeout)
+                while (isStillActive(t) && System.currentTimeMillis() < terminationTimeout)
                 {
-                    if (!t.isAlive())
+                    if (!isStillActive(t))
                     {
                         return;
                     }
+                    LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1L));
+                }
+                if (t.getState() == Thread.State.TERMINATED)
+                {
+                    return;
                 }
                 throw new AssertionError("Found rogue thread: " + t.getName() + " in state: " + t.getState() + "\n" +
                         Arrays.stream(t.getStackTrace()).map(e -> e.toString() + "\n").reduce("", (a, b) -> a + b));
             }
         });
+    }
+
+    private boolean isStillActive(final Thread t)
+    {
+        return t.isAlive() && t.getState() != Thread.State.TERMINATED;
     }
 
     private static String toId(final Thread thread)

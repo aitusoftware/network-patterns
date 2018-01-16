@@ -5,6 +5,7 @@ LABEL="RUN_$RUN"
 LIB="$(pwd)/network-patterns-all.jar"
 LISTEN_ADDRESS="192.168.0.8"
 LISTEN_PORT="9876"
+CLIENT_LISTEN_PORT="9878"
 LOG_DIR="$LABEL"
 SERVER_OUTBOUND_CPU=1
 SERVER_INBOUND_CPU=2
@@ -14,6 +15,6 @@ mkdir -p $LOG_DIR
 cd $LOG_DIR
 echo $LIB
 
-$CMD_PREFIX java -cp $LIB -Dnetwork-patterns.affinity.serverOutbound=$SERVER_OUTBOUND_CPU -Dnetwork-patterns.affinity.serverInbound=$SERVER_INBOUND_CPU  -Djava.net.preferIPv4Stack=true -Dnetwork-patterns.bindAddress="$LISTEN_ADDRESS" -Dnetwork-patterns.serverListenPort="$LISTEN_PORT" com.aitusoftware.network.patterns.app.RunAllServers TCP 2>&1 | tee tcp-server-out.log
+$CMD_PREFIX java -cp $LIB -Dnetwork-patterns.clientListenPort="$CLIENT_LISTEN_PORT" -Dnetwork-patterns.affinity.serverOutbound=$SERVER_OUTBOUND_CPU -Dnetwork-patterns.affinity.serverInbound=$SERVER_INBOUND_CPU  -Djava.net.preferIPv4Stack=true -Dnetwork-patterns.bindAddress="$LISTEN_ADDRESS" -Dnetwork-patterns.serverListenPort="$LISTEN_PORT" com.aitusoftware.network.patterns.app.RunAllServers TCP 2>&1 | tee tcp-server-out.log
 
 cd ..
