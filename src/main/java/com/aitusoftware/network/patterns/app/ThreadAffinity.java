@@ -1,5 +1,7 @@
 package com.aitusoftware.network.patterns.app;
 
+import net.openhft.affinity.Affinity;
+
 public final class ThreadAffinity
 {
     enum ThreadId
@@ -28,8 +30,12 @@ public final class ThreadAffinity
             return;
         }
 
-        System.out.printf("Setting affinity for thread %s/%s to %d%n",
-                threadId.name(), Thread.currentThread().getName(), specifiedAffinity);
+        Affinity.setAffinity(specifiedAffinity);
+        if (specifiedAffinity != Affinity.getCpu())
+        {
+            System.out.printf("Unable to set affinity for thread %s to cpu %d%n",
+                    Thread.currentThread(), specifiedAffinity);
+        }
     }
 
     private static String toSystemProperty(final ThreadId threadId)
