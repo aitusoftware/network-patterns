@@ -1,9 +1,12 @@
 #!/bin/bash
 
-./gradlew bundleJar
+./gradlew clean bundleJar
 
-cp build/libs/network-patterns-all.jar .
+cp scripts/*.sh build/libs
 
-jar cf dist.zip ./run_*.sh ./network-patterns-all.jar
+cd build/libs
+
+jar cf ../../dist.zip ./*
+cd ..
 
 echo "Created archive dist.zip"

@@ -111,14 +111,14 @@ public final class SingleThreadedRequestClient
     private void receiveMessage() throws IOException
     {
         payload.clear();
-        while (payload.remaining() != 0 && timer.isBeforeDeadline())
+        do
         {
             if (inputChannel.read(payload) == -1)
             {
                 Thread.currentThread().interrupt();
                 return;
             }
-        }
+        } while (payload.remaining() != 0 && timer.isBeforeDeadline());
     }
 
     private void sendMessage(final short sequenceNumber, final long startNanos) throws IOException
@@ -126,9 +126,6 @@ public final class SingleThreadedRequestClient
         payload.clear();
         final long sendingTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
         Messages.setRequestDataSinglePayload(payload, sendingTime | ((long) sequenceNumber) << 48);
-        while (payload.remaining() != 0)
-        {
-            outputChannel.write(payload);
-        }
+        Io.sendAll(payload, outputChannel);
     }
 }

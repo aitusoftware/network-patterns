@@ -49,11 +49,7 @@ public final class SingleThreadedResponseServer
                     if (payload.remaining() == 0)
                     {
                         payload.flip();
-
-                        while (payload.remaining() != 0)
-                        {
-                            outputChannel.write(payload);
-                        }
+                        Io.sendAll(payload, outputChannel);
                         payload.clear();
                     }
                 }

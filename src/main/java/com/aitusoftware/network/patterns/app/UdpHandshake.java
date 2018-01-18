@@ -28,10 +28,7 @@ public final class UdpHandshake
                 {
                     payload.clear();
                     payload.putLong(0, 0xFACE0FF);
-                    while (payload.remaining() != 0)
-                    {
-                        channel.write(payload);
-                    }
+                    Io.sendAll(payload, channel);
                     // wait for response to know that we're connected
                     payload.clear();
                     for (int i = 0; i < 100; i++)
@@ -76,10 +73,7 @@ public final class UdpHandshake
                     {
                         listenChannel.connect(remoteClient);
                         payload.clear();
-                        while (payload.remaining() != 0)
-                        {
-                            listenChannel.write(payload);
-                        }
+                        Io.sendAll(payload, listenChannel);
                         return;
                     }
                 }

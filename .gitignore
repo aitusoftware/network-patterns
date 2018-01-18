@@ -6,3 +6,4 @@ out/*
 *.jar
 build/*
 RUN*
+dist.zip

@@ -148,9 +148,6 @@ public final class MultiThreadedRequestClient
         final long sendingTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
 
         Messages.setRequestDataSinglePayload(requestBuffer, sendingTime | ((long) sequenceNumber) << 48);
-        while (requestBuffer.remaining() != 0)
-        {
-            outputChannel.write(requestBuffer);
-        }
+        Io.sendAll(requestBuffer, outputChannel);
     }
 }

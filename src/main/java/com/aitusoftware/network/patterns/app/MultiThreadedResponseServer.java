@@ -83,10 +83,7 @@ public final class MultiThreadedResponseServer
             {
                 responseBuffer.clear();
                 responseBuffer.putLong(0, echoPayload);
-                while (responseBuffer.remaining() != 0)
-                {
-                    outputChannel.write(responseBuffer);
-                }
+                Io.sendAll(responseBuffer, outputChannel);
             }
             catch (IOException e)
             {

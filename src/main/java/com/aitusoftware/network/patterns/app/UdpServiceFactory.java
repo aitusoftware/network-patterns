@@ -36,9 +36,7 @@ public final class UdpServiceFactory
                                   final Connection connection, final ExecutorService pool,
                                   final LatencyRecorder latencyRecorder)
     {
-        final InetSocketAddress address = new InetSocketAddress(mode == Mode.CLIENT ?
-                Constants.CONNECT_ADDRESS : Constants.BIND_ADDRESS, Constants.SERVER_LISTEN_PORT);
-        System.out.printf("Address: %s%n", address);
+        final InetSocketAddress address = new InetSocketAddress(Constants.SERVER_BIND_ADDRESS, Constants.SERVER_LISTEN_PORT);
         return runTask(mode, address, pool, transport, connection, threading, latencyRecorder);
     }
 

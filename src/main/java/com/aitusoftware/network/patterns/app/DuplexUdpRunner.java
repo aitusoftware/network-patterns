@@ -8,7 +8,6 @@ import com.aitusoftware.network.patterns.measurement.LatencyRecorder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.DatagramChannel;
@@ -57,8 +56,7 @@ public final class DuplexUdpRunner
 
     private Future<?> startServer(final DatagramChannel serverInput)
     {
-        final InetAddress remoteClientAddress = serverInput.socket().getInetAddress();
-        final InetSocketAddress remoteAddress = new InetSocketAddress(remoteClientAddress, Constants.CLIENT_LISTEN_PORT);
+        final InetSocketAddress remoteAddress = new InetSocketAddress(Constants.CLIENT_BIND_ADDRESS, Constants.CLIENT_LISTEN_PORT);
         final DatagramChannel serverOutput = connectToRemoteAddress(remoteAddress);
 
         switch (threading)
@@ -77,7 +75,7 @@ public final class DuplexUdpRunner
 
     private Future<?> startClient(final LatencyRecorder latencyRecorder, final DatagramChannel clientOutput)
     {
-        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.BIND_ADDRESS, Constants.CLIENT_LISTEN_PORT);
+        final InetSocketAddress bindAddress = new InetSocketAddress(Constants.CLIENT_BIND_ADDRESS, Constants.CLIENT_LISTEN_PORT);
         final DatagramChannel clientInput = acceptConnection(bindAddress);
 
         switch (threading)
