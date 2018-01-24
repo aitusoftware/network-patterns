@@ -21,6 +21,7 @@ CLIENT_UDP_PORT="15680"
 
 
 JAVA_ARGS="-cp $LIB -Dnetwork-patterns.warmupMessages=$WARMUP_MESSAGES \
+-Djava.net.preferIPv4Stack=true \
 -Dnetwork-patterns.runtimeMinutes=$RUNTIME_MINUTES \
 -Dnetwork-patterns.bindAddress=$SERVER_LISTEN_ADDRESS \
 -Dnetwork-patterns.clientBindAddress=$CLIENT_LISTEN_ADDRESS -XX:-TieredCompilation"
