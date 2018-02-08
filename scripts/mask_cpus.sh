@@ -1,6 +1,6 @@
 IRQ_CPUS=${OVERRIDE_IRQ_CPUS:-1,4,5}
 RESTRICTED_CPUS=${OVERRIDE_RESTRICTED_CPUS:-2,3,6,7}
-SYSTEM_CPUS=${OVERRIDE_SYSTEM_CPUS:-0,1,4,5}
+SYSTEM_CPUS=${OVERRIDE_SYSTEM_CPUS:-0,1}
 
 for i in $(ls /proc/irq); do echo "$IRQ_CPUS" | sudo tee /proc/irq/$i/smp_affinity_list; done
 
