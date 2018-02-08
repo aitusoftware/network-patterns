@@ -20,7 +20,7 @@ cd dist
 unzip ../network-patterns/dist.zip
 
 export OVERRIDE_IRQ_CPUS=1,4,5
-export OVERRIDE_RESTRICTED_CPUS=2,3,6,7
+export OVERRIDE_RESTRICTED_CPUS=2,3,4,5,6,7
 export OVERRIDE_SYSTEM_CPUS=0,1
 export OVERRIDE_CLIENT_IN_CPU=2
 export OVERRIDE_CLIENT_OUT_CPU=3
@@ -30,7 +30,7 @@ export OVERRIDE_POOL_CPUS=4,5
 export OVERRIDE_SERVER_LISTEN_ADDRESS=""
 export OVERRIDE_CLIENT_LISTEN_ADDRESS=""
 
-
+bash ./unmask_cpus.sh
 bash ./mask_cpus.sh
 
 #bash ./cpuset_wrapper.sh ./run_tcp_server.sh
