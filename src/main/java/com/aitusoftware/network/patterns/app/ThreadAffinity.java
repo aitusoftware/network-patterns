@@ -25,6 +25,9 @@ public final class ThreadAffinity
     static void setThreadAffinity(final ThreadId threadId)
     {
         final int specifiedAffinity = Integer.getInteger(toSystemProperty(threadId), NO_AFFINITY);
+
+        System.out.printf("Found CPU affinity %d for thread %s%n", specifiedAffinity, threadId);
+
         if (specifiedAffinity == NO_AFFINITY)
         {
             return;
