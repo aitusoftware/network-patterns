@@ -81,10 +81,18 @@ public final class SimplexTcpRunner
                                 new FixedThroughputSingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop :
                                 new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop);
             case MULTI_THREADED:
-
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
-                executor.submit(client::receiveLoop);
-                return executor.submit(client::sendLoop);
+                if (Constants.THROUGHPUT_TEST)
+                {
+                    final FixedThroughputMultiThreadedRequestClient client = new FixedThroughputMultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
+                    executor.submit(client::receiveLoop);
+                    return executor.submit(client::sendLoop);
+                }
+                else
+                {
+                    final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
+                    executor.submit(client::receiveLoop);
+                    return executor.submit(client::sendLoop);
+                }
             default:
                 throw new IllegalArgumentException();
         }

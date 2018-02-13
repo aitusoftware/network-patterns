@@ -30,7 +30,7 @@ public final class RunAllMain
 //        {
             for (Transport transport : Transport.values())
                 {
-                    Threading threading = Threading.SINGLE_THREADED;
+                    Threading threading = Threading.MULTI_THREADED;
 //                    for (Threading threading : Threading.values())
 //                    {
                         runUdpTest(connection, transport, threading);

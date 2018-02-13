@@ -86,9 +86,18 @@ public final class DuplexUdpRunner
                                 new FixedThroughputSingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop :
                                 new SingleThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop);
             case MULTI_THREADED:
-                final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
-                executor.submit(client::receiveLoop);
-                return executor.submit(client::sendLoop);
+                if (Constants.THROUGHPUT_TEST)
+                {
+                    final FixedThroughputMultiThreadedRequestClient client = new FixedThroughputMultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
+                    executor.submit(client::receiveLoop);
+                    return executor.submit(client::sendLoop);
+                }
+                else
+                {
+                    final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientInput, clientOutput, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
+                    executor.submit(client::receiveLoop);
+                    return executor.submit(client::sendLoop);
+                }
             default:
                 throw new IllegalArgumentException();
         }
