@@ -47,7 +47,6 @@ public final class MultiThreadedRequestClient
         long warmUpMessagesRemaining = warmupMessages;
         short sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
-        final long startNanos = System.nanoTime();
 
         try
         {
@@ -55,9 +54,9 @@ public final class MultiThreadedRequestClient
             {
                 try
                 {
-                    sendMessage(sequenceNumber, startNanos);
+                    sendMessage(sequenceNumber);
 
-                    recordLatency(sequenceNumber, startNanos);
+                    recordLatency(sequenceNumber);
                     if (warmUpMessagesRemaining != 0)
                     {
                         warmUpMessagesRemaining--;
@@ -114,7 +113,7 @@ public final class MultiThreadedRequestClient
         }
     }
 
-    private void recordLatency(final short sequenceNumber, final long startNanos)
+    private void recordLatency(final short sequenceNumber)
     {
         final long response = exchanger.get();
         if (Exchanger.isUnset(response))
@@ -142,7 +141,7 @@ public final class MultiThreadedRequestClient
         Io.closeQuietly(outputChannel);
     }
 
-    private void sendMessage(final short sequenceNumber, final long startNanos) throws IOException
+    private void sendMessage(final short sequenceNumber) throws IOException
     {
         requestBuffer.clear();
         final long sendingTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);

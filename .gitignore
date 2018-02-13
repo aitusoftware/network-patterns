@@ -7,3 +7,4 @@ out/*
 build/*
 RUN*
 dist.zip
+results/*
