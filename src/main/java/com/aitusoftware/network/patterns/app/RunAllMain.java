@@ -25,19 +25,21 @@ public final class RunAllMain
     {
         final ThreadDetector detector = new ThreadDetector();
         detector.recordThreads();
-        for (Connection connection : Connection.values())
-        {
+        Connection connection = Connection.NON_BLOCKING;
+//        for (Connection connection : Connection.values())
+//        {
             for (Transport transport : Transport.values())
                 {
-                    for (Threading threading : Threading.values())
-                    {
+                    Threading threading = Threading.SINGLE_THREADED;
+//                    for (Threading threading : Threading.values())
+//                    {
                         runUdpTest(connection, transport, threading);
                         detector.assertNoNewThreads();
                         runTcpTest(connection, transport, threading);
                         detector.assertNoNewThreads();
-                    }
+//                    }
                 }
-        }
+//        }
     }
 
     private static void runTcpTest(final Connection connection, final Transport transport, final Threading threading) throws InterruptedException, java.util.concurrent.ExecutionException, java.util.concurrent.TimeoutException

@@ -37,6 +37,12 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
     }
 
     @Override
+    public void recordValueWithExpectedInterval(final long value, final long expectedInterval)
+    {
+        histogram.recordValueWithExpectedInterval(value, expectedInterval);
+    }
+
+    @Override
     public void reset()
     {
         histogram.reset();

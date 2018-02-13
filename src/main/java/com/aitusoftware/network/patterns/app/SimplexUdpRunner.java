@@ -75,7 +75,10 @@ public final class SimplexUdpRunner
         switch (threading)
         {
             case SINGLE_THREADED:
-                return executor.submit(new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop);
+                return executor.submit(
+                        Constants.THROUGHPUT_TEST ?
+                                new FixedThroughputSingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop :
+                                new SingleThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES)::sendLoop);
             case MULTI_THREADED:
 
                 final MultiThreadedRequestClient client = new MultiThreadedRequestClient(clientChannel, clientChannel, payloadSize, latencyRecorder, Constants.WARMUP_MESSAGES);
