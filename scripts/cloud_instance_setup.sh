@@ -1,6 +1,6 @@
 #!/bin/bash
 set -euxo pipefail
-
+sudo apt update
 sudo apt install -y cpuset openjdk-8-jdk-headless git hwloc unzip
 
 cd
@@ -9,9 +9,6 @@ if [[ -d "./network-patterns" ]]; then
     rm -rf ./network-patterns
 fi
 
-if [[ -d "./dist" ]]; then
-    rm -rf ./dist
-fi
 
 
 lstopo-no-graphics --of xml -v topo.xml
@@ -24,9 +21,9 @@ bash ./package.sh
 
 cd
 
-mkdir dist
+mkdir -p dist
 cd dist
-unzip ../network-patterns/dist.zip
+unzip -o ../network-patterns/dist.zip
 
 export OVERRIDE_IRQ_CPUS=0,1,4,5
 export OVERRIDE_RESTRICTED_CPUS=1,2,3,5,6,7
