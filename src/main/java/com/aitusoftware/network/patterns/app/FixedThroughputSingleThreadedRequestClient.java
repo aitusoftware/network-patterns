@@ -28,6 +28,7 @@ public final class FixedThroughputSingleThreadedRequestClient
     private short expectedSequenceNumber = 0;
     private short nextSequenceNumber = 0;
     private boolean messageReceived = false;
+    private long sent;
 
     FixedThroughputSingleThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -56,7 +57,7 @@ public final class FixedThroughputSingleThreadedRequestClient
         try
         {
             nextSendingTimeNanos = System.nanoTime();
-            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+            while (!Thread.currentThread().isInterrupted() && sent < 10_000_000)
             {
                 warmUpMessagesRemaining =
                         recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining);
@@ -142,6 +143,7 @@ public final class FixedThroughputSingleThreadedRequestClient
             Io.sendAll(payloadOut, outputChannel);
             nextSendingTimeNanos = nextSendingTimeNanos + spinDelayBetweenMessages;
             nextSequenceNumber++;
+            sent++;
         }
     }
 }

@@ -11,6 +11,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class MultiThreadedRequestClient
 {
@@ -21,8 +22,9 @@ public final class MultiThreadedRequestClient
     private final ByteBuffer responseBuffer;
     private final long warmupMessages;
     private final LatencyRecorder latencyRecorder;
-    private final Exchanger exchanger;
     private final Timer timer;
+    private final AtomicBoolean sendFlag = new AtomicBoolean(true);
+    private long sent;
 
     MultiThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -36,37 +38,27 @@ public final class MultiThreadedRequestClient
         this.latencyRecorder = latencyRecorder;
         this.warmupMessages = warmupMessages;
         this.timer = Timer.expiringIn(Constants.RUNTIME_MINUTES, TimeUnit.MINUTES);
-        exchanger = new Exchanger(timer);
     }
 
     void sendLoop()
     {
         ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.CLIENT_OUTBOUND);
         System.out.printf("Starting request client at %s%n", Instant.now());
-        final long histogramClearInterval = warmupMessages / 500;
-        long warmUpMessagesRemaining = warmupMessages;
         short sequenceNumber = 0;
         Thread.currentThread().setName(getClass().getSimpleName() + "-sendLoop");
 
         try
         {
-            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+            while (!Thread.currentThread().isInterrupted() && sent < 10_000_000)
             {
                 try
                 {
-                    sendMessage(sequenceNumber);
-
-                    recordLatency(sequenceNumber);
-                    if (warmUpMessagesRemaining != 0)
+                    if (sendFlag.compareAndSet(true, false))
                     {
-                        warmUpMessagesRemaining--;
-                        if (warmUpMessagesRemaining % histogramClearInterval == 0
-                                || warmUpMessagesRemaining == 0)
-                        {
-                            latencyRecorder.reset();
-                        }
+                        sendMessage(sequenceNumber);
+                        sequenceNumber++;
+                        sent++;
                     }
-                    sequenceNumber++;
                 }
                 catch (IOException e)
                 {
@@ -84,11 +76,16 @@ public final class MultiThreadedRequestClient
         }
     }
 
+    private long received = 0;
+
     void receiveLoop()
     {
         ThreadAffinity.setThreadAffinity(ThreadAffinity.ThreadId.CLIENT_INBOUND);
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
-        while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+        final long histogramClearInterval = warmupMessages / 500;
+        long warmUpMessagesRemaining = warmupMessages;
+        short expectedSequenceNumber = 0;
+        while (!Thread.currentThread().isInterrupted() && received < 10_000_000)
         {
             try
             {
@@ -101,8 +98,22 @@ public final class MultiThreadedRequestClient
                 if (responseBuffer.remaining() == 0)
                 {
                     responseBuffer.flip();
-                    exchanger.set(responseBuffer.getLong(0));
+                    final long data = responseBuffer.getLong(0);
+
                     responseBuffer.clear();
+                    recordLatency(expectedSequenceNumber, data);
+                    expectedSequenceNumber++;
+                    if (warmUpMessagesRemaining != 0)
+                    {
+                        warmUpMessagesRemaining--;
+                        if (warmUpMessagesRemaining % histogramClearInterval == 0
+                                || warmUpMessagesRemaining == 0)
+                        {
+                            latencyRecorder.reset();
+                        }
+                    }
+                    sendFlag.lazySet(true);
+                    received++;
                 }
             }
             catch (IOException e)
@@ -113,14 +124,8 @@ public final class MultiThreadedRequestClient
         }
     }
 
-    private void recordLatency(final short sequenceNumber)
+    private void recordLatency(final short sequenceNumber, final long response)
     {
-        final long response = exchanger.get();
-        if (Exchanger.isUnset(response))
-        {
-            return;
-        }
-
         final long receivedTime = Messages.trimmedTimestamp(System.nanoTime(), BASE_TIMESTAMP);
         final short receivedSequence = (short) (response >> 48);
 

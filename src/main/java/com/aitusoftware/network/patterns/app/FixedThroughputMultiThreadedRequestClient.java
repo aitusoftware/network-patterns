@@ -27,6 +27,7 @@ public final class FixedThroughputMultiThreadedRequestClient
     private long nextSendingTimeNanos = 0L;
     private short expectedSequenceNumber = 0;
     private short nextSequenceNumber = 0;
+    private long sent;
 
     FixedThroughputMultiThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -53,7 +54,7 @@ public final class FixedThroughputMultiThreadedRequestClient
         try
         {
             nextSendingTimeNanos = System.nanoTime();
-            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+            while (!Thread.currentThread().isInterrupted() && sent < 10_000_000)
             {
                 try
                 {
@@ -71,10 +72,10 @@ public final class FixedThroughputMultiThreadedRequestClient
         finally
         {
             closeConnections();
-            System.out.printf("Request workload complete at %s%n", Instant.now());
-            latencyRecorder.complete();
         }
     }
+
+    private long received;
 
     void receiveLoop()
     {
@@ -82,7 +83,7 @@ public final class FixedThroughputMultiThreadedRequestClient
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
         final long histogramClearInterval = warmupMessages / 500;
         long warmUpMessagesRemaining = warmupMessages;
-        while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+        while (!Thread.currentThread().isInterrupted() && received < 10_000_000)
         {
             try
             {
@@ -95,6 +96,7 @@ public final class FixedThroughputMultiThreadedRequestClient
                 if (responseBuffer.remaining() == 0)
                 {
                     recordLatency();
+                    received++;
                     if (warmUpMessagesRemaining != 0)
                     {
                         warmUpMessagesRemaining--;
@@ -114,6 +116,8 @@ public final class FixedThroughputMultiThreadedRequestClient
                 return;
             }
         }
+        System.out.printf("Request workload complete at %s%n", Instant.now());
+        latencyRecorder.complete();
     }
 
     private void recordLatency()
@@ -152,6 +156,7 @@ public final class FixedThroughputMultiThreadedRequestClient
             Io.sendAll(requestBuffer, outputChannel);
             nextSendingTimeNanos = nextSendingTimeNanos + spinDelayBetweenMessages;
             nextSequenceNumber++;
+            sent++;
         }
     }
 }

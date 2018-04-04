@@ -48,6 +48,23 @@ public final class TcpServiceFactory
             final Threading threading, final Connection connection,
             final LatencyRecorder latencyRecorder)
     {
+        if (mode == Mode.SERVER) {
+            switch (transport)
+            {
+                case SIMPLEX:
+                    final SimplexTcpRunner simplex = new SimplexTcpRunner(
+                            mode, Connection.NON_BLOCKING, Threading.SINGLE_THREADED, address, pool, 256);
+
+                    return simplex.start(latencyRecorder);
+                case DUPLEX:
+                    final DuplexTcpRunner duplex = new DuplexTcpRunner(
+                            mode, Connection.NON_BLOCKING, Threading.SINGLE_THREADED, address, pool, 256);
+
+                    return duplex.start(latencyRecorder);
+                default:
+                    throw new IllegalArgumentException();
+            }
+        }
         switch (transport)
         {
             case SIMPLEX:

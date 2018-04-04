@@ -19,7 +19,7 @@ public final class ThreadDetector
     {
         Thread.getAllStackTraces().keySet().forEach(t -> {
             final String threadId = toId(t);
-            if (!threadIds.contains(threadId) && isStillActive(t))
+            if (!threadIds.contains(threadId) && isStillActive(t) && !t.getName().contains("Attach Listener"))
             {
                 final long terminationTimeout = System.currentTimeMillis() + 10_000L;
                 while (isStillActive(t) && System.currentTimeMillis() < terminationTimeout)

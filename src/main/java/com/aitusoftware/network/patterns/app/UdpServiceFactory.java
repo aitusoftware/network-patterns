@@ -44,6 +44,26 @@ public final class UdpServiceFactory
             final Mode mode, final InetSocketAddress address,
             final ExecutorService pool, final Transport transport, final Connection connection, final Threading threading, final LatencyRecorder latencyRecorder)
     {
+        if (mode == Mode.SERVER)
+        {
+            switch (transport)
+            {
+                case SIMPLEX:
+                    final SimplexUdpRunner simplex = new SimplexUdpRunner(
+                            mode, Connection.NON_BLOCKING, Threading.SINGLE_THREADED, address, pool, 256);
+
+                    return simplex.start(latencyRecorder);
+                case DUPLEX:
+                    final DuplexUdpRunner duplex = new DuplexUdpRunner(
+                            mode, Connection.NON_BLOCKING, Threading.SINGLE_THREADED, address, pool, 256);
+
+                    return duplex.start(latencyRecorder);
+                default:
+                    throw new IllegalArgumentException();
+            }
+        }
+
+
         switch (transport)
         {
             case SIMPLEX:

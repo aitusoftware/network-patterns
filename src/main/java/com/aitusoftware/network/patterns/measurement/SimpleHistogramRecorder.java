@@ -11,6 +11,7 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
     private final Histogram histogram;
     private final Consumer<Histogram> completeListener;
     private final LongConsumer dropListener;
+    private final long maxValue;
     private long droppedMessages;
 
     public SimpleHistogramRecorder(
@@ -20,6 +21,7 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
         this.histogram = histogram;
         this.completeListener = completeListener;
         this.dropListener = dropListener;
+        this.maxValue = histogram.getHighestTrackableValue();
     }
 
     public static LatencyRecorder printToStdOut()
@@ -33,13 +35,13 @@ public final class SimpleHistogramRecorder implements LatencyRecorder
     @Override
     public void recordValue(final long value)
     {
-        histogram.recordValue(value);
+        histogram.recordValue(Math.min(value, maxValue));
     }
 
     @Override
     public void recordValueWithExpectedInterval(final long value, final long expectedInterval)
     {
-        histogram.recordValueWithExpectedInterval(value, expectedInterval);
+        histogram.recordValueWithExpectedInterval(Math.min(value, maxValue), expectedInterval);
     }
 
     @Override

@@ -17,6 +17,7 @@ public final class SingleThreadedResponseServer
     private final WritableByteChannel outputChannel;
     private final ByteBuffer payload;
     private final Timer timer;
+    private long received;
 
     SingleThreadedResponseServer(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -35,7 +36,7 @@ public final class SingleThreadedResponseServer
         Thread.currentThread().setName(getClass().getSimpleName() + "-receiveLoop");
         try
         {
-            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+            while (!Thread.currentThread().isInterrupted() && received < 10_000_000)
             {
                 try
                 {
@@ -51,6 +52,7 @@ public final class SingleThreadedResponseServer
                         payload.flip();
                         Io.sendAll(payload, outputChannel);
                         payload.clear();
+                        received++;
                     }
                 }
                 catch (IOException e)
@@ -59,10 +61,10 @@ public final class SingleThreadedResponseServer
                     break;
                 }
             }
-            while (timer.isBeforeDeadline())
-            {
-                LockSupport.parkNanos(1);
-            }
+//            while (timer.isBeforeDeadline())
+//            {
+//                LockSupport.parkNanos(1);
+//            }
             Io.closeQuietly(inputChannel);
             Io.closeQuietly(outputChannel);
         }

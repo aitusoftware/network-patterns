@@ -21,6 +21,7 @@ public final class SingleThreadedRequestClient
     private final long warmupMessages;
     private final LatencyRecorder latencyRecorder;
     private final Timer timer;
+    private long sent;
 
     SingleThreadedRequestClient(
             final ReadableByteChannel inputChannel, final WritableByteChannel outputChannel,
@@ -46,12 +47,13 @@ public final class SingleThreadedRequestClient
 
         try
         {
-            while (!Thread.currentThread().isInterrupted() && timer.isBeforeDeadline())
+            while (!Thread.currentThread().isInterrupted() && sent < 10_000_000)
             {
                 warmUpMessagesRemaining =
                         recordSingleMessageLatency(histogramClearInterval, warmUpMessagesRemaining,
                                 sequenceNumber);
                 sequenceNumber++;
+                sent++;
             }
 
         }
